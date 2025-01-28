@@ -61,10 +61,11 @@ set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}" CACHE STRING "")
 set(PROJ_HDRS ${CMAKE_SOURCE_DIR} )
 set(UCONTROLLER_APP_LD_SCRIPT "")
 
-add_subdirectory(port/board)
+# add_subdirectory(port/board)
+set(TARGET_CONTROLLER "STM32F103C8T6" CACHE STRING "Target MMC Controller")
 add_subdirectory(port/ucontroller)
-add_subdirectory(FreeRTOS)
-add_subdirectory(modules)
+# add_subdirectory(FreeRTOS)
+# add_subdirectory(modules)
 
 include_directories( ${UCONTROLLER_HDRS} ${PROJ_HDRS} )
 
@@ -80,46 +81,48 @@ list(APPEND PROJ_SRCS "${CMAKE_SOURCE_DIR}/modules/GitSHA1.c" "${CMAKE_SOURCE_DI
 link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
 
 ## Create executable
-add_executable(${CMAKE_PROJECT_NAME} ${UCONTROLLER_SRCS} ${PROJ_SRCS})
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES COMPILE_FLAGS ${MODULES_FLAGS})
+# add_executable(${CMAKE_PROJECT_NAME} ${UCONTROLLER_SRCS} ${PROJ_SRCS})
+# set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES COMPILE_FLAGS ${MODULES_FLAGS})
 
 if(${BOARD} MATCHES "^(afc)")
   set(PROJ_LIBS lpcopen)
+elseif(${BOARD} MATCHES "^(u4)")
+  set(PROJ_LIBS STM32F1xx_HAL_Driver)
 else()
   message(FATAL_ERROR "${BOARD} not supported!")
 endif()
 
 # Linker flags
-set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
-set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
-  SUFFIX ".elf"
-  LINK_FLAGS "-T ${UCONTROLLER_APP_LD_SCRIPT} -Wl,-Map=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET_CONTROLLER}_app.map"
-  )
+# set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
+# set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
+#   SUFFIX ".elf"
+#   LINK_FLAGS "-T ${UCONTROLLER_APP_LD_SCRIPT} -Wl,-Map=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET_CONTROLLER}_app.map"
+#   )
 
 # Headers path
-target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${PROJ_HDRS})
+# target_include_directories(${CMAKE_PROJECT_NAME} PUBLIC ${PROJ_HDRS})
 # Link libraries
-target_link_libraries(${CMAKE_PROJECT_NAME} FreeRTOS gcc c ${PROJ_LIBS})
+# target_link_libraries(${CMAKE_PROJECT_NAME} FreeRTOS gcc c ${PROJ_LIBS})
 
 ##Generate binary file
-add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
-  COMMAND ${CMAKE_OBJCOPY} -O binary ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.bin
-  WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-  COMMENT "Converting the ELF output to a binary file"
-  )
+# add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
+#   COMMAND ${CMAKE_OBJCOPY} -O binary ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.bin
+#   WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+#   COMMENT "Converting the ELF output to a binary file"
+#   )
 
 ##Generate hpm files if bin2hpm is installed
 
-find_program(BIN2HPM NAMES "bin2hpm")
-if(BIN2HPM)
-  add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
-    COMMAND bin2hpm -c 1 -n -m 0x315A -p 0x00 ${CMAKE_PROJECT_NAME}.bin -o ${CMAKE_PROJECT_NAME}.hpm
-    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-    COMMENT "Creating HPM file from binary"
-  )
-  message(STATUS "bin2hpm found in the $PATH, .hpm files will be generated automatically.")
-else()
-  message(NOTICE "bin2hpm not found in the $PATH, .hpm files will not be generated.")
-endif()
+# find_program(BIN2HPM NAMES "bin2hpm")
+# if(BIN2HPM)
+#   add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
+#     COMMAND bin2hpm -c 1 -n -m 0x315A -p 0x00 ${CMAKE_PROJECT_NAME}.bin -o ${CMAKE_PROJECT_NAME}.hpm
+#     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+#     COMMENT "Creating HPM file from binary"
+#   )
+#   message(STATUS "bin2hpm found in the $PATH, .hpm files will be generated automatically.")
+# else()
+#   message(NOTICE "bin2hpm not found in the $PATH, .hpm files will not be generated.")
+# endif()
 
 include( ${CMAKE_SOURCE_DIR}/probe/openocd.cmake )

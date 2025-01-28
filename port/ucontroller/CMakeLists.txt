@@ -1,3 +1,4 @@
+set(TARGET_CONTROLLER "STM32F103C8T6" CACHE STRING "Target MMC Controller")
 message(STATUS "Selected Controller: ${TARGET_CONTROLLER}")
 
 if(NOT TARGET_CONTROLLER)
@@ -6,7 +7,8 @@ endif()
 
 if(${TARGET_CONTROLLER} MATCHES "^(lpc|LPC)17")
   add_subdirectory(nxp/lpc17xx)
-
+elseif(${TARGET_CONTROLLER} MATCHES "^(stm|STM)32")
+  add_subdirectory(stm32/stm32f1xx)
 else ()
   message(FATAL_ERROR "${BoldRed}Selected Controller \"${TARGET_CONTROLLER}\" is not implemented!${ColourReset}")
 endif()
