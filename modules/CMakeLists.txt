@@ -132,7 +132,7 @@ if (";${TARGET_MODULES};" MATCHES "SENSOR")
 endif()
 
 #Modules dependencies check
-if(${TARGET_BOARD_NAME} MATCHES "^(AFC)")
+if(${TARGET_BOARD_NAME} MATCHES "^(AFC)|(u)")
   if (("${MODULES_FLAGS}" MATCHES "-DMODULE_PAYLOAD") AND NOT ("${MODULES_FLAGS}" MATCHES "-DMODULE_DAC_AD84XX"))
     message(WARNING "${Red}[AFC] Payload module is being used but the DAC_AD84XX was not included in this build. The VADJ reference will not be configured! ${ColourReset}")
   endif()

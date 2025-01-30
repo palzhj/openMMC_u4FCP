@@ -4,7 +4,10 @@ if(NOT BOARD)
   message(FATAL_ERROR "${BoldRed}Target board was not selected! You must pass the flag -DBOARD=<board_name>${ColourReset}")
 endif()
 
-if(${BOARD} MATCHES "^(afc)$")
+if(${BOARD} MATCHES "^(afc-v4)$" )
+  add_subdirectory(afc-v4)
+
+elseif(${BOARD} MATCHES "^(afc)$")
 
   if(NOT VERSION)
     message(FATAL_ERROR "${BoldRed}AFC board version was not selected! You must pass the flag -DVERSION=<major>.<minor>${ColourReset}")
@@ -19,8 +22,19 @@ if(${BOARD} MATCHES "^(afc)$")
     add_subdirectory(afc-v4)
   endif()
 
-elseif(${BOARD} MATCHES "^(afc-v4)$" )
-  add_subdirectory(afc-v4)
+elseif(${BOARD} MATCHES "^(u4fcp-v2)$" )
+  add_subdirectory(u4fcp-v2)
+elseif(${BOARD} MATCHES "^(u)$" )
+  if(NOT VERSION)
+    message(FATAL_ERROR "${BoldRed}uFC board version was not selected! You must pass the flag -DVERSION=<major>.<minor>${ColourReset}")
+  endif()
+
+  message(STATUS "Selected Board version: ${VERSION}")
+  if(${VERSION} MATCHES "(1.0)")
+    add_subdirectory(u4fcp-v1)
+  elseif(${VERSION} MATCHES "(2.0)")
+    add_subdirectory(u4fcp-v2)
+  endif()
 
 else()
   message(FATAL_ERROR "${BoldRed}Selected board \"${BOARD}\" is not implemented!${ColourReset}")
@@ -28,6 +42,8 @@ endif()
 
 if(${BOARD} MATCHES "^(afc)")
   add_subdirectory(afc-common)
+elseif(${BOARD} MATCHES "^(u)")
+  add_subdirectory(ufc-common)
 endif()
 
 #RTM Board

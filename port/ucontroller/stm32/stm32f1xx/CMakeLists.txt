@@ -81,13 +81,13 @@ set(UCONTROLLER_APP_LD_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/linker/${TARGET_CONTR
 
 add_library(STM32F1XX STATIC ${LIBSTM32F1XX_SRCS})
 
-# target_link_libraries(STM32F1XX PUBLIC FreeRTOS)
+target_link_libraries(STM32F1XX PUBLIC FreeRTOS)
 target_link_libraries(STM32F1XX PUBLIC)
 target_include_directories(STM32F1XX PUBLIC ${STM32F1XX_HAL_INCPATH})
 target_include_directories(STM32F1XX PUBLIC ${STM32F1XX_LEGACY_INCPATH})
 target_include_directories(STM32F1XX PUBLIC ${CMSIS_INCPATH})
 target_include_directories(STM32F1XX PUBLIC ${CMSIS_ST_INCPATH})
 target_include_directories(STM32F1XX PUBLIC ${STM32F1XX_PATH})
-# target_include_directories(STM32F1XX PUBLIC ${PROJ_HDRS})
+target_include_directories(STM32F1XX PUBLIC ${PROJ_HDRS})
 
 add_subdirectory(bootloader)
