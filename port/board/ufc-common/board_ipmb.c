@@ -2,7 +2,8 @@
  *   openMMC -- Open Source modular IPM Controller firmware
  *
  *   Copyright (C) 2015-2016  Henrique Silva <henrique.silva@lnls.br>
- *
+ *   Copyright (C) 2025  Jie Zhang  <zhj@ihep.ac.cn>
+ * 
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
  *   the Free Software Foundation, either version 3 of the License, or

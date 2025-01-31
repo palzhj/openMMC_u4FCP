@@ -3,6 +3,7 @@
  *
  *   Copyright (C) 2016  Henrique Silva <henrique.silva@lnls.br>
  *   Copyright (C) 2021  Krzysztof Macias <krzysztof.macias@creotech.pl>
+ *   Copyright (C) 2025  Jie Zhang  <zhj@ihep.ac.cn>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -21,20 +22,20 @@
  */
 
 /**
- * @defgroup AFC_V4_0 AFCv4.0 Board Port
+ * @defgroup u4FCP_v2.0 Board Port
  * @ingroup BOARD_PORTS
  */
 
 /**
- * @file afc-v4/pin_mapping.h
- * @brief Hardware pin definitions for AFCv4.0
+ * @file u4fcp-v2/pin_mapping.h
+ * @brief Hardware pin definitions for u4FCPv2.0
  *
- * @ingroup AFC_V4_0_PIN_MAPPING
+ * @ingroup u4FCP_V2_0_PIN_MAPPING
  */
 
 /**
- * @defgroup AFC_V4_0_PIN_MAPPING AFCv4.0 Pin Mapping
- * @ingroup AFC_V4_0
+ * @defgroup u4FCP_V2_0_PIN_MAPPING AFCv4.0 Pin Mapping
+ * @ingroup u4FCP_V2_0
  * @{
  */
 
@@ -140,7 +141,8 @@
 #define GPIO_FRONT_BUTTON               PIN_DEF( PORT2, 12, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
 
 /* Hot swap handle */
-#define GPIO_HOT_SWAP_HANDLE            PIN_DEF( PORT2, 13, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
+// #define GPIO_HOT_SWAP_HANDLE            PIN_DEF( PORT2, 13, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
+#define GPIO_HOT_SWAP_HANDLE            PIN_DEF( 0, 13, 0, 0 )
 
 /* FPGA Control */
 #define GPIO_FPGA_DONE_B                PIN_DEF( PORT0, 22, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
