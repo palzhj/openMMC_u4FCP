@@ -45,7 +45,7 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 20K
-  FLASH    (rx)   : ORIGIN = 0x08002000,   LENGTH = 28K
+  FLASH    (rx)   : ORIGIN = 0x08002000,   LENGTH = 60K
 }
 
 __BootFlash_start     = 0x08000000;   /* Bootloader start address (vector table) */
@@ -92,6 +92,13 @@ SECTIONS
     *(.rodata*)        /* .rodata* sections (constants, strings, etc.) */
     . = ALIGN(4);
   } >FLASH
+
+  .ipmi_handlers : ALIGN(32)
+  {
+      _ipmi_handlers = .;
+      KEEP(*(.ipmi_handlers))
+      _eipmi_handlers = .;
+  } > FLASH
 
   .ARM.extab (READONLY) : /* The "READONLY" keyword is only supported in GCC11 and later, remove it if using GCC10 or earlier. */
   {
