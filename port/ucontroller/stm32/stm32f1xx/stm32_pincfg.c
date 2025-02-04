@@ -47,4 +47,20 @@ void pin_init( void )
     //         gpio_set_pin_dir( PIN_PORT(cfg[i]), PIN_NUMBER(cfg[i]), PIN_DIR(cfg[i]));
     //     }
     // }
+    __set_PRIMASK(0);
+
+    UART_HandleTypeDef huart1;
+    huart1.Instance = USART1;
+    huart1.Init.BaudRate = 115200;
+    huart1.Init.WordLength = UART_WORDLENGTH_8B;
+    huart1.Init.StopBits = UART_STOPBITS_1;
+    huart1.Init.Parity = UART_PARITY_NONE;
+    huart1.Init.Mode = UART_MODE_TX_RX;
+    huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+    while (1)
+    {
+        HAL_UART_Transmit(&huart1, "Hello world!\r\n", 15, 0xFFFF);
+    }
+
 }

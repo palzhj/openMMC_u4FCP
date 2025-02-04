@@ -28,25 +28,25 @@
 #ifndef PORT_H_
 #define PORT_H_
 
-/* List of all LPC17xx specific headers to be included */
+/* List of all STM32xx specific headers to be included */
 
-// #include "chip_lpc175x_6x.h"
-// #include "lpc17_gpio.h"
-// #include "lpc17_i2c.h"
+#include "stm32f1xx_hal.h"
+#include "stm32_gpio.h"
+#include "stm32_i2c.h"
 // #include "lpc17_ssp.h"
 // #include "lpc17_spi.h"
-// #include "lpc17_watchdog.h"
+#include "stm32_watchdog.h"
 // #include "lpc17_interruptions.h"
 // #include "lpc17_hpm.h"
 // #include "lpc17_power.h"
-// #include "lpc17_pincfg.h"
+#include "stm32_pincfg.h"
 #include "pin_mapping.h"
 // #include "arm_cm3_reset.h"
 
 #ifdef UART_RINGBUFFER
 #include "lpc17_uartrb.h"
 #else
-// #include "lpc17_uart.h"
+#include "stm32_uart.h"
 #endif
 
 #endif

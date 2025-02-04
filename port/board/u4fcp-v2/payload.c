@@ -29,23 +29,24 @@
 
 /* Project Includes */
 #include "port.h"
-#include "adc_17xx_40xx.h"
+// #include "adc_17xx_40xx.h"
 #include "payload.h"
 #include "ipmi.h"
 #include "task_priorities.h"
-#include "mcp23016.h"
-#include "ad84xx.h"
-#include "idt_8v54816.h"
+// #include "mcp23016.h"
+// #include "ad84xx.h"
+// #include "idt_8v54816.h"
 #include "hotswap.h"
 #include "utils.h"
-#include "fru.h"
+// #include "fru.h"
 #include "led.h"
 #include "board_led.h"
 #include "board_config.h"
-#include "clock_config.h"
+// #include "clock_config.h"
 #include "eeprom_24xx02.h"
 #include "i2c_mapping.h"
 #include "pin_mapping.h"
+#include "mmc_error.h"
 
 /* payload states
  *   0 - No power
@@ -92,80 +93,80 @@ uint8_t setDC_DC_ConvertersON(bool on)
     };
 
     uint8_t pin;
-    if (on) {
-        printf("Enable Power\n");
+    // if (on) {
+    //     printf("Enable Power\n");
 
-        for (uint8_t i = 0; i < (sizeof(power_pins) / sizeof(power_pins[0])); i++) {
-            pin = power_pins[i];
-            mcp23016_write_pin( ext_gpios[pin].port_num, ext_gpios[pin].pin_num, true );
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-    } else {
-        printf("Disable Power\n");
+    //     for (uint8_t i = 0; i < (sizeof(power_pins) / sizeof(power_pins[0])); i++) {
+    //         pin = power_pins[i];
+    //         mcp23016_write_pin( ext_gpios[pin].port_num, ext_gpios[pin].pin_num, true );
+    //         vTaskDelay(pdMS_TO_TICKS(10));
+    //     }
+    // } else {
+    //     printf("Disable Power\n");
 
-        for (uint8_t i = (sizeof(power_pins) / sizeof(power_pins[0])); i > 0; i--) {
-            pin = power_pins[i];
-            mcp23016_write_pin( ext_gpios[pin].port_num, ext_gpios[pin].pin_num, false );
-            vTaskDelay(pdMS_TO_TICKS(10));
-        }
-    }
+    //     for (uint8_t i = (sizeof(power_pins) / sizeof(power_pins[0])); i > 0; i--) {
+    //         pin = power_pins[i];
+    //         mcp23016_write_pin( ext_gpios[pin].port_num, ext_gpios[pin].pin_num, false );
+    //         vTaskDelay(pdMS_TO_TICKS(10));
+    //     }
+    // }
     return 1;
 }
 
 static void fpga_soft_reset( void )
 {
-    gpio_set_pin_low( PIN_PORT(GPIO_FPGA_RESET), PIN_NUMBER(GPIO_FPGA_RESET) );
-    asm("NOP");
-    gpio_set_pin_high( PIN_PORT(GPIO_FPGA_RESET), PIN_NUMBER(GPIO_FPGA_RESET) );
+    // gpio_set_pin_low( PIN_PORT(GPIO_FPGA_RESET), PIN_NUMBER(GPIO_FPGA_RESET) );
+    // asm("NOP");
+    // gpio_set_pin_high( PIN_PORT(GPIO_FPGA_RESET), PIN_NUMBER(GPIO_FPGA_RESET) );
 
-    /* Blink RED LED to indicate to the user that the Reset was performed */
-    LEDUpdate( FRU_AMC, LED1, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0 );
+    // /* Blink RED LED to indicate to the user that the Reset was performed */
+    // LEDUpdate( FRU_AMC, LED1, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0 );
 }
 
 static void check_fpga_reset( void )
 {
-    static TickType_t edge_time;
-    static uint8_t reset_lock;
-    static uint8_t last_state = 1;
+    // static TickType_t edge_time;
+    // static uint8_t reset_lock;
+    // static uint8_t last_state = 1;
 
-    TickType_t diff;
-    TickType_t cur_time = xTaskGetTickCount();
+    // TickType_t diff;
+    // TickType_t cur_time = xTaskGetTickCount();
 
-    uint8_t cur_state = gpio_read_pin( PIN_PORT(GPIO_FRONT_BUTTON), PIN_NUMBER(GPIO_FRONT_BUTTON));
+    // uint8_t cur_state = gpio_read_pin( PIN_PORT(GPIO_FRONT_BUTTON), PIN_NUMBER(GPIO_FRONT_BUTTON));
 
-    if ( (cur_state == 0) && (last_state == 1) ) {
-        /* Detects the falling edge of the front panel button */
-        edge_time = cur_time;
-        reset_lock = 0;
-    }
+    // if ( (cur_state == 0) && (last_state == 1) ) {
+    //     /* Detects the falling edge of the front panel button */
+    //     edge_time = cur_time;
+    //     reset_lock = 0;
+    // }
 
-    diff = getTickDifference( cur_time, edge_time );
+    // diff = getTickDifference( cur_time, edge_time );
 
-    if ( (diff > pdMS_TO_TICKS(2000)) && (reset_lock == 0) && (cur_state == 0) ) {
-        fpga_soft_reset();
-        /* If the user continues to press the button after the 2s, prevent this action to be repeated */
-        reset_lock = 1;
-    }
+    // if ( (diff > pdMS_TO_TICKS(2000)) && (reset_lock == 0) && (cur_state == 0) ) {
+    //     fpga_soft_reset();
+    //     /* If the user continues to press the button after the 2s, prevent this action to be repeated */
+    //     reset_lock = 1;
+    // }
 
-    last_state = cur_state;
+    // last_state = cur_state;
 }
 
 uint8_t payload_check_pgood()
 {
     /* Threshold set to ~8V */
-    const uint16_t PAYLOAD_THRESHOLD = 0x9B2;
-    uint16_t dataADC;
+    // const uint16_t PAYLOAD_THRESHOLD = 0x9B2;
+    // uint16_t dataADC;
 
-    Chip_ADC_SetStartMode(LPC_ADC, ADC_START_NOW, ADC_TRIGGERMODE_RISING);
+    // Chip_ADC_SetStartMode(LPC_ADC, ADC_START_NOW, ADC_TRIGGERMODE_RISING);
 
-    /* Waiting for A/D conversion complete */
-    while (Chip_ADC_ReadStatus(LPC_ADC, ADC_CH1, ADC_DR_DONE_STAT) != SET) {}
-    /* Read ADC value */
-    Chip_ADC_ReadValue(LPC_ADC, ADC_CH1, &dataADC);
+    // /* Waiting for A/D conversion complete */
+    // while (Chip_ADC_ReadStatus(LPC_ADC, ADC_CH1, ADC_DR_DONE_STAT) != SET) {}
+    // /* Read ADC value */
+    // Chip_ADC_ReadValue(LPC_ADC, ADC_CH1, &dataADC);
 
-    if (dataADC > PAYLOAD_THRESHOLD){
-        return 1;
-    }
+    // if (dataADC > PAYLOAD_THRESHOLD){
+    //     return 1;
+    // }
     return 0;
 }
 
@@ -192,13 +193,13 @@ EventGroupHandle_t rtm_payload_evt = NULL;
 
 void payload_send_message( uint8_t fru_id, EventBits_t msg)
 {
-    if ( (fru_id == FRU_AMC) && amc_payload_evt ) {
-        xEventGroupSetBits( amc_payload_evt, msg );
-#ifdef MODULE_RTM
-    } else if ( (fru_id == FRU_RTM) && rtm_payload_evt ) {
-        xEventGroupSetBits( rtm_payload_evt, msg );
-#endif
-    }
+//     if ( (fru_id == FRU_AMC) && amc_payload_evt ) {
+//         xEventGroupSetBits( amc_payload_evt, msg );
+// #ifdef MODULE_RTM
+//     } else if ( (fru_id == FRU_RTM) && rtm_payload_evt ) {
+//         xEventGroupSetBits( rtm_payload_evt, msg );
+// #endif
+//     }
 
 }
 
@@ -206,87 +207,87 @@ TaskHandle_t vTaskPayload_Handle;
 
 void payload_init( void )
 {
-    bool standalone_mode = false;
-    mmc_err err;
+//     bool standalone_mode = false;
+//     mmc_err err;
 
-    if (get_ipmb_addr() == IPMB_ADDR_DISCONNECTED) {
-        standalone_mode = true;
-    }
+//     if (get_ipmb_addr() == IPMB_ADDR_DISCONNECTED) {
+//         standalone_mode = true;
+//     }
 
-    if (!standalone_mode) {
-        /* Wait until ENABLE# signal is asserted ( ENABLE == 0) */
-        while ( gpio_read_pin( PIN_PORT(GPIO_MMC_ENABLE), PIN_NUMBER(GPIO_MMC_ENABLE) ) == 1 ) {};
-    }
+//     if (!standalone_mode) {
+//         /* Wait until ENABLE# signal is asserted ( ENABLE == 0) */
+//         while ( gpio_read_pin( PIN_PORT(GPIO_MMC_ENABLE), PIN_NUMBER(GPIO_MMC_ENABLE) ) == 1 ) {};
+//     }
 
-    /* Recover clock switch configuration saved in EEPROM */
-    eeprom_24xx02_read(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
+//     /* Recover clock switch configuration saved in EEPROM */
+//     eeprom_24xx02_read(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
 
-    xTaskCreate( vTaskPayload, "Payload", 256, NULL, tskPAYLOAD_PRIORITY, &vTaskPayload_Handle );
+//     xTaskCreate( vTaskPayload, "Payload", 256, NULL, tskPAYLOAD_PRIORITY, &vTaskPayload_Handle );
 
-    amc_payload_evt = xEventGroupCreate();
-#ifdef MODULE_RTM
-    rtm_payload_evt = xEventGroupCreate();
-    mcp23016_write_pin(ext_gpios[EXT_GPIO_EN_RTM_MP].port_num, ext_gpios[EXT_GPIO_EN_RTM_MP].pin_num, true);
-#endif
+//     amc_payload_evt = xEventGroupCreate();
+// #ifdef MODULE_RTM
+//     rtm_payload_evt = xEventGroupCreate();
+//     mcp23016_write_pin(ext_gpios[EXT_GPIO_EN_RTM_MP].port_num, ext_gpios[EXT_GPIO_EN_RTM_MP].pin_num, true);
+// #endif
 
-#ifdef MODULE_ADC
-    ADC_CLOCK_SETUP_T ADCSetup;
-    Chip_ADC_Init(LPC_ADC, &ADCSetup);
-    Chip_ADC_EnableChannel(LPC_ADC, ADC_CH1, ENABLE);
-#endif
+// #ifdef MODULE_ADC
+//     ADC_CLOCK_SETUP_T ADCSetup;
+//     Chip_ADC_Init(LPC_ADC, &ADCSetup);
+//     Chip_ADC_EnableChannel(LPC_ADC, ADC_CH1, ENABLE);
+// #endif
 
-#ifdef MODULE_MCP23016
-    if (!gpio_read_pin(PIN_PORT(GPIO_PGOOD_P1V0), PIN_NUMBER(GPIO_PGOOD_P1V0))){
+// #ifdef MODULE_MCP23016
+//     if (!gpio_read_pin(PIN_PORT(GPIO_PGOOD_P1V0), PIN_NUMBER(GPIO_PGOOD_P1V0))){
 
-        /*
-         * Configure all GPIOs as outputs
-         */
-        err = mcp23016_set_port_dir(0, 0);
+//         /*
+//          * Configure all GPIOs as outputs
+//          */
+//         err = mcp23016_set_port_dir(0, 0);
 
-        if (err != MMC_OK) {
-            PRINT_ERR_LINE(err);
-        }
+//         if (err != MMC_OK) {
+//             PRINT_ERR_LINE(err);
+//         }
 
-        err = mcp23016_set_port_dir(1, 0);
+//         err = mcp23016_set_port_dir(1, 0);
 
-        if (err != MMC_OK) {
-            PRINT_ERR_LINE(err);
-        }
+//         if (err != MMC_OK) {
+//             PRINT_ERR_LINE(err);
+//         }
 
-#ifdef MODULE_DAC_AD84XX
-        /* Configure the PVADJ DAC */
-        err = mcp23016_write_pin( ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].port_num, ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].pin_num, false );
-        if (err != MMC_OK) {
-            PRINT_ERR_LINE(err);
-        }
+// #ifdef MODULE_DAC_AD84XX
+//         /* Configure the PVADJ DAC */
+//         err = mcp23016_write_pin( ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].port_num, ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].pin_num, false );
+//         if (err != MMC_OK) {
+//             PRINT_ERR_LINE(err);
+//         }
 
-        dac_ad84xx_init();
+//         dac_ad84xx_init();
 
-        err = mcp23016_write_pin( ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].port_num, ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].pin_num, true );
-        if (err != MMC_OK) {
-            PRINT_ERR_LINE(err);
-        }
+//         err = mcp23016_write_pin( ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].port_num, ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].pin_num, true );
+//         if (err != MMC_OK) {
+//             PRINT_ERR_LINE(err);
+//         }
 
-        set_vadj_volt( 0, 2.5 );
-        set_vadj_volt( 1, 2.5 );
-#endif
+//         set_vadj_volt( 0, 2.5 );
+//         set_vadj_volt( 1, 2.5 );
+// #endif
 
-        gpio_set_pin_state(PIN_PORT(GPIO_FPGA_RESET), PIN_NUMBER(GPIO_FPGA_RESET), GPIO_LEVEL_LOW);
-        gpio_set_pin_state(PIN_PORT(GPIO_FPGA_INITB), PIN_NUMBER(GPIO_FPGA_INITB), GPIO_LEVEL_LOW);
+//         gpio_set_pin_state(PIN_PORT(GPIO_FPGA_RESET), PIN_NUMBER(GPIO_FPGA_RESET), GPIO_LEVEL_LOW);
+//         gpio_set_pin_state(PIN_PORT(GPIO_FPGA_INITB), PIN_NUMBER(GPIO_FPGA_INITB), GPIO_LEVEL_LOW);
 
-        err = mcp23016_write_pin( ext_gpios[EXT_GPIO_PROGRAM_B].port_num, ext_gpios[EXT_GPIO_PROGRAM_B].pin_num, false );
+//         err = mcp23016_write_pin( ext_gpios[EXT_GPIO_PROGRAM_B].port_num, ext_gpios[EXT_GPIO_PROGRAM_B].pin_num, false );
 
-        if (err != MMC_OK) {
-            PRINT_ERR_LINE(err);
-        }
+//         if (err != MMC_OK) {
+//             PRINT_ERR_LINE(err);
+//         }
 
-        err = mcp23016_write_pin( ext_gpios[EXT_GPIO_FPGA_I2C_RESET].port_num, ext_gpios[EXT_GPIO_FPGA_I2C_RESET].pin_num, true );
+//         err = mcp23016_write_pin( ext_gpios[EXT_GPIO_FPGA_I2C_RESET].port_num, ext_gpios[EXT_GPIO_FPGA_I2C_RESET].pin_num, true );
 
-        if (err != MMC_OK) {
-            PRINT_ERR_LINE(err);
-        }
-    }
-#endif
+//         if (err != MMC_OK) {
+//             PRINT_ERR_LINE(err);
+//         }
+//     }
+// #endif
 }
 
 void vTaskPayload( void *pvParameters )
@@ -341,13 +342,13 @@ void vTaskPayload( void *pvParameters )
          * When receive a PAYLOAD_MESSAGE_CLOCK_CONFIG message, configure the clock switch
          * and write the new configuration in EEPROM
          */
-        if( current_evt & PAYLOAD_MESSAGE_CLOCK_CONFIG ){
-            eeprom_24xx02_write(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
-            if (PAYLOAD_FPGA_ON) {
-                clock_switch_write_reg(clock_config);
-            }
-            xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_CLOCK_CONFIG);
-        }
+        // if( current_evt & PAYLOAD_MESSAGE_CLOCK_CONFIG ){
+        //     eeprom_24xx02_write(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
+        //     if (PAYLOAD_FPGA_ON) {
+        //         clock_switch_write_reg(clock_config);
+        //     }
+        //     xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_CLOCK_CONFIG);
+        // }
         if ( current_evt & PAYLOAD_MESSAGE_COLD_RST ) {
             state = PAYLOAD_RESET;
             xEventGroupClearBits( amc_payload_evt, PAYLOAD_MESSAGE_COLD_RST );
@@ -404,9 +405,9 @@ void vTaskPayload( void *pvParameters )
              * Only change the state if the clock switch configuration
              * succeeds
              */
-            if (clock_switch_write_reg(clock_config)) {
-                new_state = PAYLOAD_FPGA_ON;
-            }
+            // if (clock_switch_write_reg(clock_config)) {
+            //     new_state = PAYLOAD_FPGA_ON;
+            // }
             break;
 
         case PAYLOAD_FPGA_ON:

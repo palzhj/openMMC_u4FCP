@@ -46,7 +46,7 @@ set(CMAKE_ERROR_FLAGS "-Wall -Wextra -Wpointer-arith -Wno-packed-bitfield-compat
 # Build specific flags
 set(CMAKE_C_FLAGS           "${CMAKE_C_FLAGS} ${CMAKE_ERROR_FLAGS}")
 set(CMAKE_C_FLAGS_DEBUG     "-Og -g3 -DDEBUG")
-set(CMAKE_C_FLAGS_RELEASE   "-Os")
+set(CMAKE_C_FLAGS_RELEASE   "-O3")
 
 # When we break up long strings in CMake we get semicolon
 # separated lists, undo this here...
@@ -68,7 +68,7 @@ add_subdirectory(modules)
 
 include_directories( ${UCONTROLLER_HDRS} ${PROJ_HDRS} )
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DTARGET_CONTROLLER=${TARGET_CONTROLLER} -DTARGET_BOARD_NAME=\"${TARGET_BOARD_NAME}\" ")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DTARGET_CONTROLLER=${TARGET_CONTROLLER} -DTARGET_BOARD_NAME=\"${TARGET_BOARD_NAME}\"")
 
 # Get Git information
 git_describe(GIT_TAG "--tags")
@@ -95,7 +95,7 @@ endif()
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES
   SUFFIX ".elf"
-  LINK_FLAGS "-T ${UCONTROLLER_APP_LD_SCRIPT} -Wl,-Map=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET_CONTROLLER}_app.map"
+  LINK_FLAGS "-T${UCONTROLLER_APP_LD_SCRIPT} -Wl,-Map=${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${TARGET_CONTROLLER}_app.map"
   )
 
 # Headers path

@@ -42,11 +42,8 @@
 #ifndef PIN_MAPPING_H_
 #define PIN_MAPPING_H_
 
-/* SPI Interfaces */
-#define FPGA_SPI        0
-
 /* UART Interfaces */
-#define UART_DEBUG      0
+#define UART_DEBUG      USART1
 
 /* Pin definitions */
 /* 32 bit value in the format -> [port][pin][func][dir] each field [] is one byte */
@@ -89,39 +86,6 @@
 
 /* GPIO definitions */
 
-/* I2C MUX control pins */
-#define GPIO_I2C_MUX_ADDR1              PIN_DEF( PORT0,  4, (IOCON_FUNC0 | IOCON_MODE_PULLDOWN), GPIO_DIR_OUTPUT )
-#define GPIO_I2C_MUX_ADDR2              PIN_DEF( PORT0,  5, (IOCON_FUNC0 | IOCON_MODE_PULLDOWN), GPIO_DIR_OUTPUT )
-#define GPIO_I2C_SW_RESETn              PIN_DEF( PORT0, 19, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
-
-/* LPC_ISPn RTS */
-#define GPIO_RTS                        PIN_DEF( PORT2,  10, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
-/* Power Good pins */
-#define GPIO_PG_RESETn                  PIN_DEF( PORT1,  22, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_PGOOD_P1V0                 PIN_DEF( PORT3,  26, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
-#define GPIO_AMC_RTM_CRITICAL           PIN_DEF( PORT1,  26, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_AMC_RTM_TC                 PIN_DEF( PORT1,  28, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_AMC_RTM_WARNING            PIN_DEF( PORT1,  29, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_AMC_RTM_PV                 PIN_DEF( PORT1,  27, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
-/* FMC Power Good pins */
-#define GPIO_FMC1_PG_M2C                PIN_DEF( PORT1, 16, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FMC2_PG_M2C                PIN_DEF( PORT1, 17, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FMC1_PG_C2M                PIN_DEF( PORT1, 18, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
-#define GPIO_FMC2_PG_C2M                PIN_DEF( PORT1, 19, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
-
-#define GPIO_FMC1_CRITICAL              PIN_DEF( PORT0,  23, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FMC1_TC                    PIN_DEF( PORT0,  25, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FMC1_WARNING               PIN_DEF( PORT0,  26, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FMC1_PV                    PIN_DEF( PORT1,  31, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
-#define GPIO_FMC2_CRITICAL              PIN_DEF( PORT2,  7, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FMC2_TC                    PIN_DEF( PORT4,  28, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FMC2_WARNING               PIN_DEF( PORT4,  29, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FMC2_PV                    PIN_DEF( PORT3,  25, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
 /* Geographic Address pin definitions */
 #define GPIO_GA0                        PIN_DEF( PORT1,  0, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
 #define GPIO_GA1                        PIN_DEF( PORT1,  1, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
@@ -137,34 +101,17 @@
 #define GPIO_LEDGREEN                   PIN_DEF( 0, 10, 0, 1 )
 #define GPIO_LEDRED                     PIN_DEF( 0, 25, 0, 1 )
 
-/* Front Panel BUTTON */
-#define GPIO_FRONT_BUTTON               PIN_DEF( PORT2, 12, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
 /* Hot swap handle */
 // #define GPIO_HOT_SWAP_HANDLE            PIN_DEF( PORT2, 13, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
 #define GPIO_HOT_SWAP_HANDLE            PIN_DEF( 0, 13, 0, 0 )
 
 /* FPGA Control */
-#define GPIO_FPGA_DONE_B                PIN_DEF( PORT0, 22, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-#define GPIO_FPGA_INITB                 PIN_DEF( PORT0, 20, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
-#define GPIO_FPGA_RESET                 PIN_DEF( PORT2,  9, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
-
-/* VADJ DAC */
-#define GPIO_DAC_VADJ_RST               PIN_DEF( PORT0, 21, (IOCON_FUNC0 | IOCON_MODE_PULLUP), GPIO_DIR_OUTPUT )
+#define GPIO_FPGA_DONE_B                PIN_DEF( 0, 13, 0, 0 )
+#define GPIO_FPGA_INITB                 PIN_DEF( 0, 13, 0, 0 )
+#define GPIO_FPGA_RESET                 PIN_DEF( 0, 13, 0, 0 )
 
 /* MMC ENABLE# */
 #define GPIO_MMC_ENABLE                 PIN_DEF( PORT2,  8, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
-/* Overtemp signal */
-#define GPIO_OVERTEMPn                  PIN_DEF( PORT2, 11, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
-/* JTAG */
-#define GPIO_FMC1_JTAG_Override         PIN_DEF( PORT2,  1, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
-#define GPIO_FMC2_JTAG_Override         PIN_DEF( PORT0,  8, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
-#define GPIO_RTM_JTAG_Override          PIN_DEF( PORT2,  0, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
-
-/* EEPROM WP signal */
-#define GPIO_EEPROM_WP                  PIN_DEF( PORT1,  30, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_OUTPUT )
 
 /* FMC CLK signals */
 #define GPIO_CLK_DIR_FMC2               PIN_DEF( PORT0,  6, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
@@ -174,9 +121,14 @@
 #define GPIO_FMC1_PRSNT_M2C             PIN_DEF( PORT1, 14, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
 #define GPIO_FMC2_PRSNT_M2C             PIN_DEF( PORT1, 15, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
 
+/* FMC Power Good pins */
+#define GPIO_FMC1_PG_M2C                PIN_DEF( 0, 13, 0, 0 )
+#define GPIO_FMC2_PG_M2C                PIN_DEF( 0, 13, 0, 0 )
+#define GPIO_FMC1_PG_C2M                PIN_DEF( 0, 13, 0, 0 )
+#define GPIO_FMC2_PG_C2M                PIN_DEF( 0, 13, 0, 0 )
+
 /* RTM */
 #define GPIO_RTM_PS                     PIN_DEF( PORT0, 29, (IOCON_FUNC0 | IOCON_MODE_INACT), GPIO_DIR_INPUT )
-
 
 /* Pin initialization (config) list */
 #define PIN_CFG_LIST                            \
