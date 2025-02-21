@@ -9,7 +9,6 @@ set(PROJ_SRCS ${PROJ_SRCS} ${MODULE_PATH}/led.c)
 set(PROJ_SRCS ${PROJ_SRCS} ${MODULE_PATH}/ipmb.c ${MODULE_PATH}/ipmi.c)
 set(PROJ_SRCS ${PROJ_SRCS} ${MODULE_PATH}/printf-stdarg.c)
 set(PROJ_SRCS ${PROJ_SRCS} ${MODULE_PATH}/mmc_error.c)
-set(PROJ_SRCS ${PROJ_SRCS} ${MODULE_PATH}/eeprom_24xx02.c)
 
 message(STATUS "Selected modules to compile: ${TARGET_MODULES}")
 
@@ -138,9 +137,9 @@ if(${TARGET_BOARD_NAME} MATCHES "^(AFC)|(u)")
   endif()
 endif()
 
-if(NOT ("${MODULES_FLAGS}" MATCHES "-DMODULE_HOTSWAP"))
-  message(FATAL_ERROR "${Red}[ERROR] Mandatory Hotswap sensor module not included!${ColourReset}")
-endif()
+# if(NOT ("${MODULES_FLAGS}" MATCHES "-DMODULE_HOTSWAP"))
+#   message(FATAL_ERROR "${Red}[ERROR] Mandatory Hotswap sensor module not included!${ColourReset}")
+# endif()
 
 set(PROJ_SRCS ${PROJ_SRCS} PARENT_SCOPE)
 set(PROJ_HDRS ${PROJ_HDRS} PARENT_SCOPE)

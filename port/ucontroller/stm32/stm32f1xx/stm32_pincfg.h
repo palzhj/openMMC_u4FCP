@@ -2,7 +2,6 @@
  *   openMMC  --
  *
  *   Copyright (C) 2015  Henrique Silva  <henrique.silva@lnls.br>
- *   Copyright (C) 2025  Jie Zhang  <zhj@ihep.ac.cn>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -20,10 +19,9 @@
 
 /**
  * @file stm32_pincfg.h
- * @brief Pin Config functions redirection for STM32xx
+ * @brief Pin Config functions redirection for STM32
  *
  * @author Henrique Silva <henrique.silva@lnls.br>, LNLS
- * @author Jie Zhang <zhj@ihep.ac.cn>, IHEP
  */
 
 #ifndef STM32_PINCFG_H_
@@ -36,23 +34,20 @@
  * @param       port    : GPIO port to mux
  * @param       pin     : GPIO pin to mux
  * @param       cfg     : Configuration bits to select pin mode/function
+ * @see
  */
 
 /* 32 bit value in the format -> [port][pin][func][dir] each field [] is one byte */
 #define PIN_DEF( port, pin, func, dir ) ( (port << 24) | (pin << 16) | (func << 8) | dir )
 
-#define PIN_PORT( pin_def )      ((pin_def & 0xFF000000) >> 24)
+GPIO_TypeDef *PIN_PORT(uint32_t pin_def);
 #define PIN_NUMBER( pin_def )    ((pin_def & 0x00FF0000) >> 16)
 #define PIN_FUNC( pin_def )      ((pin_def & 0x0000FF00) >> 8)
 #define PIN_DIR( pin_def )       ((pin_def & 0x000000FF) >> 0)
 
 /* For other mcus like Atmel's it should be PORTA, PORTB, etc */
-#define PORT0 0
-#define PORT1 1
-#define PORT2 2
-#define PORT3 3
-#define PORT4 4
-
-#define NON_GPIO 0xFF
+#define PORT0 0 //GPIOA
+#define PORT1 1 //GPIOB
+#define PORT2 2 //GPIOC
 
 #endif

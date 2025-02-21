@@ -28,9 +28,12 @@
 #ifndef PORT_H_
 #define PORT_H_
 
+#include <stdio.h>
+#include <string.h>
+
 /* List of all STM32xx specific headers to be included */
 
-#include "stm32f1xx_hal.h"
+#include "stm32f10x_conf.h"
 #include "stm32_gpio.h"
 #include "stm32_i2c.h"
 // #include "lpc17_ssp.h"
@@ -39,7 +42,6 @@
 // #include "lpc17_interruptions.h"
 // #include "lpc17_hpm.h"
 // #include "lpc17_power.h"
-#include "stm32_pincfg.h"
 #include "pin_mapping.h"
 // #include "arm_cm3_reset.h"
 

@@ -23,6 +23,17 @@ const external_gpio_t ext_gpios[16] = {
         [EXT_GPIO_DAC_VADJ_RSTn] =   { 0, 1 },
         [EXT_GPIO_PROGRAM_B] =       { 0, 0 }
 };
+
+/**
+* @brief GPIO Initialization Function
+* @param None
+* @retval None
+*/
+void gpio_init(void)
+{
+
+}
+
 /**
  * @}
  */

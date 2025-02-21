@@ -1,31 +1,33 @@
-/* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
+ ******************************************************************************
+ * @file    main.c
+ * @author  Jie Zhang
+ * @version V1.0
+ * @date    11-February-2025
+ * @brief   Main program body
+ ******************************************************************************
+ *
+ * This file provides a basic structure and includes functions for initializing
+ * peripherals, handling firmware updates, and managing the bootloader process.
+ *
+ * The application begins by initializing the UART for debugging purposes and
+ * checking for firmware updates. If a valid firmware update is detected, it
+ * proceeds to update the application or bootloader firmware. After completing
+ * the update, the code jumps to the user application to continue execution.
+ *
+ * The code also includes helper functions for converting integers to strings,
+ * sending strings over UART, and handling errors during the firmware update
+ * process. Additionally, it provides a mechanism for retargeting the C library's
+ * printf function to the UART for debugging output.
+ *
+ ******************************************************************************
+ */
+
 /* Includes ------------------------------------------------------------------*/
-#include "main.h"
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
-/* USER CODE END Includes */
+#include "stm32f10x_conf.h"
+#include <stdio.h>
 
 /* Private typedef -----------------------------------------------------------*/
-/* USER CODE BEGIN PTD */
 enum fw_update_type
 {
   FW_UPDATE_APP = 1,
@@ -38,30 +40,18 @@ typedef struct
   uint8_t fw_type;
   uint32_t magic;
 } fw_info;
-/* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
-/* USER CODE BEGIN PD */
-#define STM32_FLASH_SIZE 64  // Kbytes
-  #if STM32_FLASH_SIZE < 256
-    #define STM_SECTOR_SIZE 1024 //1K bytes
-  #else
-    #define STM_SECTOR_SIZE 2048 //2K bytes
+/* Define the STM32F10x FLASH Page Size depending on the used STM32 device */
+#if defined(STM32F10X_HD) || defined(STM32F10X_HD_VL) || defined(STM32F10X_CL) || defined(STM32F10X_XL)
+#define FLASH_PAGE_SIZE ((uint16_t)0x800)
+#else
+#define FLASH_PAGE_SIZE ((uint16_t)0x400)
 #endif
-/* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c2;
-
-UART_HandleTypeDef huart1;
-
-/* USER CODE BEGIN PV */
 extern const uint32_t __BootFlash_start;
 extern const uint32_t __BootFlash_end;
 extern const uint32_t __AppFlash_start;
@@ -70,539 +60,385 @@ extern const uint32_t __FWUpdateFlash_start;
 extern const uint32_t __FWUpdateFlash_end;
 extern const fw_info __FWInfo_addr;
 
-const uint32_t* boot_start_addr = &__BootFlash_start;
-const uint32_t* boot_end_addr = &__BootFlash_end;
-const uint32_t* app_start_addr = &__AppFlash_start;
-const uint32_t* app_end_addr = &__AppFlash_end;
-const uint32_t* update_start_addr = &__FWUpdateFlash_start;
-const uint32_t* update_end_addr = &__FWUpdateFlash_end;
-
-const fw_info* fw_header = &__FWInfo_addr;
-/* USER CODE END PV */
+const fw_info *fw_header = &__FWInfo_addr;
 
 /* Private function prototypes -----------------------------------------------*/
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_USART1_UART_Init(void);
-static void MX_I2C1_Init(void);
-static void MX_I2C2_Init(void);
-/* USER CODE BEGIN PFP */
-void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_USART1_UART_Init(void);
-static void MX_I2C1_Init(void);
-static void MX_I2C2_Init(void);
+#ifdef __GNUC__
+/* With GCC/RAISONANCE, small printf (option LD Linker->Libraries->Small printf
+  set to 'Yes') calls __io_putchar() */
+#define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
+#else
+#define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
+#endif /* __GNUC__ */
+
 /* Function pointer for jumping to user application. */
 typedef void (*app_ptr)(void);
-/* USER CODE END PFP */
 
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
-char* u8_to_str(uint8_t n, char* str){
+/* Private functions ---------------------------------------------------------*/
+
+/**
+ * @brief  Converts an 8-bit unsigned integer to a string.
+ * @param  n: The 8-bit unsigned integer to be converted.
+ * @param  str: Pointer to the buffer where the resulting string will be stored.
+ * @retval Pointer to the resulting null-terminated string.
+ *
+ * This function takes an 8-bit unsigned integer and converts it into a string
+ * representation. The resulting string is stored in the buffer pointed to by
+ * the 'str' parameter. The function handles integers from 0 to 255 and ensures
+ * that the resulting string is null-terminated. The buffer is expected to be
+ * large enough to hold up to four characters (including the null terminator).
+ */
+char *u8_to_str(uint8_t n, char *str)
+{
   uint8_t digits[3];
+  uint8_t index = 0;
 
+  // Extract hundreds, tens, and units place
   digits[0] = n / 100;
-  digits[1] = (n - digits[0]) / 10;
-  digits[2] = (n - digits[1]);
+  digits[1] = (n / 10) % 10;
+  digits[2] = n % 10;
 
-  if (digits[0] == 0){
-    if (digits[1] == 0){
-      str[0] = digits[2] | 0x30;
-      str[1] = 0;
-    }
-    else{
-      str[0] = digits[1] | 0x30;
-      str[1] = digits[2] | 0x30;
-      str[2] = 0;
-    }
+  // Skip leading zeros
+  if (digits[0] != 0)
+  {
+    str[index++] = digits[0] + '0';
   }
-  else{
-    str[0] = digits[0] | 0x30;
-    str[1] = digits[1] | 0x30;
-    str[2] = digits[2] | 0x30;
-    str[3] = 0;
+  if (digits[0] != 0 || digits[1] != 0)
+  {
+    str[index++] = digits[1] + '0';
   }
+
+  // Add the last digit
+  str[index++] = digits[2] + '0';
+
+  // Null terminate the string
+  str[index] = '\0';
+
   return str;
 }
 
-int uart1_write_str_blocking(char* buffer)
+/**
+ * @brief  Sends a string over USART1 in a blocking manner.
+ * @param  buffer: Pointer to the null-terminated string to be sent.
+ * @retval The number of characters sent.
+ *
+ * This function transmits a string via USART1, waiting for each character
+ * to be successfully transmitted before sending the next one. It uses the
+ * USART_GetFlagStatus() function to check the Transfer Complete (TC) flag
+ * and USART_SendData() to send each character. The function returns the
+ * total number of characters sent.
+ */
+int uart1_write_str_blocking(const char *buffer)
 {
   int len = 0;
-  while (*buffer){
-    HAL_UART_Transmit(&huart1, (uint8_t *)buffer, 1, 0xFFFF);
-    buffer++;
+  while (*buffer != '\0')
+  {
+    /* Wait for the transmission to complete by checking the Transfer Complete (TC) flag */
+    while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET)
+      ;
+    USART_SendData(USART1, (uint16_t)*buffer++);
     len++;
   }
   return len;
 }
 
-uint8_t get_page_number(const uint32_t* flash_addr){
-  return ((uint8_t)((uint32_t)flash_addr - (uint32_t)boot_start_addr) / STM_SECTOR_SIZE);
-}
-
-uint32_t* get_address(const uint8_t page_num){
-  return ( uint32_t*)(boot_start_addr+page_num*STM_SECTOR_SIZE);
-}
-
-void copy_flash_page(const uint8_t src_page, const uint8_t dest_page, uint8_t page_len)
-{
-  uint32_t buffer[STM_SECTOR_SIZE/4];
-  uint32_t* src_addr = get_address(src_page);
-  uint32_t* dest_addr = get_address(dest_page);
-
-  for (uint32_t i = 0; i < page_len; i++){
-    for (uint32_t j = 0; j < STM_SECTOR_SIZE/4; j++){
-      buffer[j] = *(uint32_t*)(src_addr+i*STM_SECTOR_SIZE+j*4);
-    }
-    for (uint32_t j = 0; j < STM_SECTOR_SIZE/4; j++){
-      if(HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, (uint32_t)(dest_addr+i*STM_SECTOR_SIZE+j*4), buffer[j]) != HAL_OK){
-        /*Error occurred while write.*/
-        uart1_write_str_blocking("[BOOTLOADER] Page write ERROR");
-        return;
-      }
-      /* Read back the content of the memory. If it is wrong, then report an error. */
-      if (buffer[j] != *(volatile uint32_t*)(dest_addr+i*STM_SECTOR_SIZE+j*4)){
-        /*Error occurred while read back check. */
-        uart1_write_str_blocking("[BOOTLOADER] Page read back and check ERROR");
-        return;
-      }
-    }
-  }
-}
-
 /**
- * @brief   Actually jumps to the user application.
- * @param   void
- * @return  void
+ * @brief  Jumps to the user application code.
+ * @param  None
+ * @retval None
+ *
+ * This function is responsible for transitioning the execution flow from
+ * the bootloader to the user application. It performs necessary checks
+ * and setups before jumping to the application code. The function first
+ * verifies that the application start address is valid. It then sets the
+ * Main Stack Pointer (MSP) to the application's start address and jumps
+ * to the application's reset handler to begin execution. Interrupts are
+ * disabled during this process to ensure a smooth transition.
  */
-void flash_jump_to_app(void)
+void bootloader_jump_to_app(void)
 {
   /* Function pointer to the address of the user application. */
-  typedef void(*pfun)(void);
+  const uint32_t *app_start_addr = &__AppFlash_start;
+  typedef void (*pfun)(void);
   static pfun jumpToApp;
   __IO uint32_t jumpAddr;
-  // HAL_DeInit();
+
+  // Disable interrupts to ensure a smooth transition
   __set_PRIMASK(1);
-  /* Change the main stack pointer. */
-//  if (((*(__IO uint32_t *)0x08002000) & 0x2FFE0000) == 0x20000000)
-//  {
-//    jumpAddr = *(__IO uint32_t *)(0x08002000 + 4);
-//    jumpToApp = (pfun)jumpAddr;
-//
-//    /* key point !!! */
-//    __set_PSP(*(__IO uint32_t *)0x08002000);
-//    __set_CONTROL(0);
-//    __set_MSP(*(__IO uint32_t *)0x08002000);
-//
-//    jumpToApp();
-//  }
+
+  /* Check if the application start address is valid */
   if ((*app_start_addr & 0x2FFE0000) == 0x20000000)
   {
+    // Retrieve the application's reset handler address
     jumpAddr = *(app_start_addr + 1);
     jumpToApp = (pfun)jumpAddr;
 
-    /* key point !!! */
-//    __set_PSP(*app_start_addr);
-//    __set_CONTROL(0);
+    /* Set the Main Stack Pointer to the application's start address */
+    __set_PSP(*app_start_addr);
+    // __set_CONTROL(0);
     __set_MSP(*app_start_addr);
 
+    /* Jump to the application's reset handler */
     jumpToApp();
   }
 }
 
+/**
+ * @brief  Performs a firmware update by erasing and writing to the flash memory.
+ * @param  ftype: The type of firmware update to perform, either application or bootloader.
+ * @retval None
+ *
+ * This function handles the firmware update process by erasing the necessary
+ * sections of flash memory and writing new firmware data to it. It first
+ * identifies the start and stop addresses of the firmware section to be
+ * updated based on the update type (application or bootloader). It then
+ * unlocks the flash memory, clears any pending flags, and proceeds to erase
+ * the flash pages one by one. After erasing, it writes the new firmware
+ * data to the flash memory and verifies the written data by reading it back.
+ * If any errors occur during the erase, write, or verification steps,
+ * error messages are sent over UART. Finally, it erases the firmware update
+ * section and locks the flash memory before jumping to the application code.
+ */
 void update(enum fw_update_type ftype)
 {
-  static FLASH_EraseInitTypeDef EraseInitStruct;
-  uint32_t PAGEError;
-  uint8_t target_start_page;
-  uint8_t target_end_page;
-  uint8_t target_page_size;
-  const uint8_t update_start_page = get_page_number(update_start_addr);
+    const uint32_t sourceAddr = (uint32_t)&__FWUpdateFlash_start;
+    uint32_t counter;
+    uint32_t nbrOfPage;
+    uint32_t startAddr;
+    uint32_t stopAddr;
 
-  if (ftype == FW_UPDATE_APP)
-  {
-      target_start_page = get_page_number(app_start_addr);
-      target_end_page = get_page_number(app_end_addr);
-      target_page_size = target_end_page - target_start_page + 1;
-  }
-  else if (ftype == FW_UPDATE_BOOT)
-  {
-      target_start_page = get_page_number(boot_start_addr);
-      target_end_page = get_page_number(boot_end_addr);
-      target_page_size = target_end_page - target_start_page + 1;
-  }
-  else return;
+    if (ftype == FW_UPDATE_APP)
+    {
+        startAddr = (uint32_t)&__AppFlash_start;
+        stopAddr = (uint32_t)&__AppFlash_end;
+        nbrOfPage = (stopAddr - startAddr) / FLASH_PAGE_SIZE;
+    }
+    else if (ftype == FW_UPDATE_BOOT)
+    {
+        startAddr = (uint32_t)&__BootFlash_start;
+        stopAddr = (uint32_t)&__BootFlash_end;
+        nbrOfPage = (stopAddr - startAddr) / FLASH_PAGE_SIZE;
+    }
+    else
+    {
+        return; // Invalid firmware update type, exit function
+    }
 
-  /* Unlock the flash to enable the flash control register access */
-  HAL_FLASH_Unlock();
+    // Unlock the flash to enable the flash control register access
+    FLASH_Unlock();
 
-  /* Erase flash firmware app or bootloader section */
-  EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
-  EraseInitStruct.PageAddress = target_start_page;
-  EraseInitStruct.NbPages = target_page_size;
-  if(HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError) != HAL_OK){
-    /*Error occurred while page erase.*/
-    uart1_write_str_blocking("[BOOTLOADER] Page erase ERROR");
-    return;
-  }
+    // Clear all pending flags
+    FLASH_ClearFlag(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPRTERR);
 
-  copy_flash_page(update_start_page, target_start_page, target_page_size);
+    // Erase flash firmware app or bootloader section
+    for (counter = 0; counter < nbrOfPage; counter++)
+    {
+        if (FLASH_ErasePage(startAddr + (FLASH_PAGE_SIZE * counter)) != FLASH_COMPLETE)
+        {
+            // Error occurred while page erase
+            uart1_write_str_blocking("[BOOTLOADER] Page erase ERROR");
+            return;
+        }
+    }
 
-  /* Erase flash firmware update section */
-  EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
-  EraseInitStruct.PageAddress = update_start_page;
-  EraseInitStruct.NbPages = target_page_size;
-  if(HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError) != HAL_OK){
-    /*Error occurred while page erase.*/
-    uart1_write_str_blocking("[BOOTLOADER] Page erase ERROR for update section");
-    return;
-  }
+    // Write flash firmware app or bootloader section
+    for (counter = 0; counter < (stopAddr - startAddr); counter += 4)
+    {
+        if (FLASH_ProgramWord(startAddr + counter, *(volatile uint32_t *)(sourceAddr + counter)) != FLASH_COMPLETE)
+        {
+            // Error occurred while page write
+            uart1_write_str_blocking("[BOOTLOADER] Page write ERROR");
+            return;
+        }
+    }
 
-  /* Lock the Flash to disable the flash control register access
-   * Recommended to protect the FLASH MEMORY against possible unwanted operation
-   */
-  HAL_FLASH_Lock();
-  /* Jump to application code */
-  flash_jump_to_app();
+    // Read back the content of the memory. If it is wrong, then report an error.
+    for (counter = 0; counter < (stopAddr - startAddr); counter += 4)
+    {
+        if (*(volatile uint32_t *)(startAddr + counter) != *(volatile uint32_t *)(sourceAddr + counter))
+        {
+            // Error occurred while read back check
+            uart1_write_str_blocking("[BOOTLOADER] Page read back and check ERROR");
+            return;
+        }
+    }
+
+    // Erase flash firmware update section
+    for (counter = 0; counter < nbrOfPage; counter++)
+    {
+        if (FLASH_ErasePage(sourceAddr + (FLASH_PAGE_SIZE * counter)) != FLASH_COMPLETE)
+        {
+            // Error occurred while page erase
+            uart1_write_str_blocking("[BOOTLOADER] Page erase ERROR for update section");
+            return;
+        }
+    }
+
+    // Lock the Flash to disable the flash control register access
+    // Recommended to protect the FLASH MEMORY against possible unwanted operation
+    FLASH_Lock();
+
+    // Jump to application code
+    bootloader_jump_to_app();
 }
-/* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
-  * @retval int
-  */
+ * @brief  Initializes the UART interface for debugging.
+ * @param  None
+ * @retval None
+ *
+ * This function configures the UART interface used for debugging purposes.
+ * It sets up the necessary GPIO pins for UART transmission and reception
+ * and configures the UART parameters such as baud rate, word length, stop bits,
+ * parity, and hardware flow control. After configuration, the UART interface
+ * is enabled to allow for communication.
+ */
+void DEBUG_UART_Init(void)
+{
+  GPIO_InitTypeDef GPIO_InitStructure;
+  USART_InitTypeDef USART_InitStructure;
+
+  /* Enable GPIO and USART clocks */
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_AFIO | RCC_APB2Periph_USART1, ENABLE);
+
+  /* Configure USART Tx as alternate function push-pull */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+  /* Configure USART Rx as input floating */
+  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;
+  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+  GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+  /* Configure USART1 settings */
+  USART_InitStructure.USART_BaudRate = 115200;
+  USART_InitStructure.USART_WordLength = USART_WordLength_8b;
+  USART_InitStructure.USART_StopBits = USART_StopBits_1;
+  USART_InitStructure.USART_Parity = USART_Parity_No;
+  USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_None;
+  USART_InitStructure.USART_Mode = USART_Mode_Rx | USART_Mode_Tx;
+
+  /* Initialize USART1 */
+  USART_Init(USART1, &USART_InitStructure);
+
+  /* Enable USART1 */
+  USART_Cmd(USART1, ENABLE);
+}
+
+/**
+ * @brief  Main program.
+ * @param  None
+ * @retval None
+ */
 int main(void)
 {
+    /* At this stage the microcontroller clock setting is already configured,
+     * this is done through SystemInit() function which is called from startup
+     * file (startup_stm32f10x_xx.s) before branching to application main.
+     * To reconfigure the default setting of SystemInit() function, refer to
+     * system_stm32f10x.c file
+     */
 
-  /* USER CODE BEGIN 1 */
+    /* Initialize UART for debugging */
+    DEBUG_UART_Init();
 
-  /* USER CODE END 1 */
+    /* Print bootloader compilation information */
+    uart1_write_str_blocking("[BOOTLOADER] Compiled: ");
+    uart1_write_str_blocking(__DATE__);
+    uart1_write_str_blocking(" ");
+    uart1_write_str_blocking(__TIME__);
+    uart1_write_str_blocking("\r\n");
 
-  /* MCU Configuration--------------------------------------------------------*/
+    /* Check for firmware update */
+    if (fw_header->magic == 0xAAAAAAAA)
+    {
+        char version_str[4];  /* Buffer for version string conversion */
 
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+        uart1_write_str_blocking("[BOOTLOADER] DO NOT TURN OFF WHILE UPDATING!\r\n");
 
-  /* USER CODE BEGIN Init */
+        /* Handle application firmware update */
+        if (fw_header->fw_type == FW_UPDATE_APP)
+        {
+            uart1_write_str_blocking("[BOOTLOADER] New app firmware update found!\r\nUpdating to ");
+            uart1_write_str_blocking(u8_to_str(fw_header->version[0], version_str));
+            uart1_write_str_blocking(".");
+            uart1_write_str_blocking(u8_to_str(fw_header->version[1], version_str));
+            uart1_write_str_blocking(".");
+            uart1_write_str_blocking(u8_to_str(fw_header->version[2], version_str));
+            uart1_write_str_blocking("...\r\n");
 
-  /* USER CODE END Init */
+            update(FW_UPDATE_APP);
+        }
+        /* Handle bootloader firmware update */
+        else if (fw_header->fw_type == FW_UPDATE_BOOT)
+        {
+            uart1_write_str_blocking("[BOOTLOADER] New bootloader firmware update found!\r\nUpdating to ");
+            uart1_write_str_blocking(u8_to_str(fw_header->version[0], version_str));
+            uart1_write_str_blocking(".");
+            uart1_write_str_blocking(u8_to_str(fw_header->version[1], version_str));
+            uart1_write_str_blocking(".");
+            uart1_write_str_blocking(u8_to_str(fw_header->version[2], version_str));
+            uart1_write_str_blocking("...\r\n");
 
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_USART1_UART_Init();
-  MX_I2C1_Init();
-  MX_I2C2_Init();
-  /* USER CODE BEGIN 2 */
-  uart1_write_str_blocking("[BOOTLOADER] Compiled: ");
-  uart1_write_str_blocking(__DATE__);
-  uart1_write_str_blocking(" ");
-  uart1_write_str_blocking(__TIME__);
-  uart1_write_str_blocking("\r\n");
-  if (fw_header->magic == 0xAAAAAAAA){
-    char tmp[128];
-    uart1_write_str_blocking("[BOOTLOADER] DO NOT TURN OFF WHILE UPDATING!\r\n");
-    if (fw_header->fw_type == 1){
-      uart1_write_str_blocking("[BOOTLOADER] New app firmware update found!\r\nUpdating to ");
-      uart1_write_str_blocking(u8_to_str(fw_header->version[0], tmp));
-      uart1_write_str_blocking(".");
-      uart1_write_str_blocking(u8_to_str(fw_header->version[1], tmp));
-      uart1_write_str_blocking(".");
-      uart1_write_str_blocking(u8_to_str(fw_header->version[2], tmp));
-      uart1_write_str_blocking("...\r\n");
-
-      update(FW_UPDATE_APP);
+            update(FW_UPDATE_BOOT);
+        }
+        /* Handle unknown firmware type */
+        else
+        {
+            uart1_write_str_blocking("[BOOTLOADER] ERROR: Unknown fw_type ");
+            uart1_write_str_blocking(u8_to_str(fw_header->fw_type, version_str));
+            uart1_write_str_blocking(" !\r\n Jumping to application code...\r\n");
+        }
     }
-    else if(fw_header->fw_type == 2){
-      uart1_write_str_blocking("[BOOTLOADER] New bootloader firmware update found!\r\nUpdating to ");
-      uart1_write_str_blocking(u8_to_str(fw_header->version[0], tmp));
-      uart1_write_str_blocking(".");
-      uart1_write_str_blocking(u8_to_str(fw_header->version[1], tmp));
-      uart1_write_str_blocking(".");
-      uart1_write_str_blocking(u8_to_str(fw_header->version[2], tmp));
-      uart1_write_str_blocking("...\r\n");
 
-      update(FW_UPDATE_BOOT);
+    /* Jump to application code */
+    bootloader_jump_to_app();
+
+    /* Infinite loop - should never reach here */
+    while (1)
+    {
     }
-    else{
-      uart1_write_str_blocking("[BOOTLOADER] ERROR: Unknown fw_type ");
-      uart1_write_str_blocking(u8_to_str(fw_header->fw_type, tmp));
-      uart1_write_str_blocking(" !\r\n Jumping to application code...\r\n");
-    }
-  }
-  /* Jump to application code */
-  flash_jump_to_app();
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-	  HAL_UART_Transmit(&huart1,  (uint8_t*)"[BOOTLOADER]\r\n", 16, 0xFFFF);
-	  HAL_Delay(2500);
-  }
-  /* USER CODE END 3 */
 }
 
 /**
-  * @brief System Clock Configuration
-  * @retval None
-  */
-void SystemClock_Config(void)
+ * @brief  Retargets the C library printf function to the USART.
+ * @param  None
+ * @retval None
+ */
+PUTCHAR_PROTOTYPE
 {
-  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
-  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
-
-  /** Initializes the RCC Oscillators according to the specified parameters
-  * in the RCC_OscInitTypeDef structure.
-  */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
-  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
-  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
-  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
-  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Initializes the CPU, AHB and APB buses clocks
-  */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
-
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  /* Place your implementation of fputc here */
+  /* Loop until the end of transmission */
+  while (USART_GetFlagStatus(USART1, USART_FLAG_TC) == RESET)
+    ;
+  /* e.g. write a character to the USART */
+  USART_SendData(USART1, (uint8_t)ch);
+  return ch;
 }
 
-/**
-  * @brief I2C1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C1_Init(void)
-{
-
-  /* USER CODE BEGIN I2C1_Init 0 */
-
-  /* USER CODE END I2C1_Init 0 */
-
-  /* USER CODE BEGIN I2C1_Init 1 */
-
-  /* USER CODE END I2C1_Init 1 */
-  hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
-  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
-  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c1.Init.OwnAddress2 = 0;
-  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C1_Init 2 */
-
-  /* USER CODE END I2C1_Init 2 */
-
-}
+#ifdef USE_FULL_ASSERT
 
 /**
-  * @brief I2C2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C2_Init(void)
-{
-
-  /* USER CODE BEGIN I2C2_Init 0 */
-
-  /* USER CODE END I2C2_Init 0 */
-
-  /* USER CODE BEGIN I2C2_Init 1 */
-
-  /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.ClockSpeed = 100000;
-  hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C2_Init 2 */
-
-  /* USER CODE END I2C2_Init 2 */
-
-}
-
-/**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-/* USER CODE BEGIN MX_GPIO_Init_1 */
-/* USER CODE END MX_GPIO_Init_1 */
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(FPGA_PROG_B_GPIO_Port, FPGA_PROG_B_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(FPGA_RST_B_GPIO_Port, FPGA_RST_B_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(RTM_RES_GPIO_Port, RTM_RES_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, AMC_LED_GREEN_Pin|AMC_LED_BLUE_Pin|AMC_LED_RED_Pin|PMBUS_CTRL_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pins : AMC_MODE_Pin FPGA_DONE_Pin */
-  GPIO_InitStruct.Pin = AMC_MODE_Pin|FPGA_DONE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : FPGA_PROG_B_Pin */
-  GPIO_InitStruct.Pin = FPGA_PROG_B_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(FPGA_PROG_B_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : AMC_MODULE_HANDLE_Pin RTM_INT_B_Pin CLK0_INT_B_Pin CLK1_INT_B_Pin
-                           CLK0_LOL_B_Pin CL1K_LOL_B_Pin RTM_PS_B_Pin AMC_GA2_Pin
-                           AMC_GA1_Pin AMC_GA0_Pin */
-  GPIO_InitStruct.Pin = AMC_MODULE_HANDLE_Pin|RTM_INT_B_Pin|CLK0_INT_B_Pin|CLK1_INT_B_Pin
-                          |CLK0_LOL_B_Pin|CL1K_LOL_B_Pin|RTM_PS_B_Pin|AMC_GA2_Pin
-                          |AMC_GA1_Pin|AMC_GA0_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : FPGA_RST_B_Pin RTM_RES_Pin */
-  GPIO_InitStruct.Pin = FPGA_RST_B_Pin|RTM_RES_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : AMC_LED_GREEN_Pin AMC_LED_BLUE_Pin AMC_LED_RED_Pin PMBUS_CTRL_Pin */
-  GPIO_InitStruct.Pin = AMC_LED_GREEN_Pin|AMC_LED_BLUE_Pin|AMC_LED_RED_Pin|PMBUS_CTRL_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : FMC0_PRSNT_B_Pin FMC1_PRSNT_B_Pin FMC0_CLK_DIR_Pin FMC1_CLK_DIR_Pin
-                           AMC_GA_Pin PMBUS_ALERT_B_Pin */
-  GPIO_InitStruct.Pin = FMC0_PRSNT_B_Pin|FMC1_PRSNT_B_Pin|FMC0_CLK_DIR_Pin|FMC1_CLK_DIR_Pin
-                          |AMC_GA_Pin|PMBUS_ALERT_B_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-/* USER CODE BEGIN MX_GPIO_Init_2 */
-/* USER CODE END MX_GPIO_Init_2 */
-}
-
-/* USER CODE BEGIN 4 */
-
-/* USER CODE END 4 */
-
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @retval None
-  */
-void Error_Handler(void)
-{
-  /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
-  /* USER CODE END Error_Handler_Debug */
-}
-
-#ifdef  USE_FULL_ASSERT
-/**
-  * @brief  Reports the name of the source file and the source line number
-  *         where the assert_param error has occurred.
-  * @param  file: pointer to the source file name
-  * @param  line: assert_param error line source number
-  * @retval None
-  */
+ * @brief  Reports the name of the source file and the source line number
+ *         where the assert_param error has occurred.
+ * @param  file: pointer to the source file name
+ * @param  line: assert_param error line source number
+ * @retval None
+ */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-  /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
+
+  /* Infinite loop */
+  while (1)
+  {
+  }
 }
-#endif /* USE_FULL_ASSERT */
+#endif
+
+/**
+ * @}
+ */

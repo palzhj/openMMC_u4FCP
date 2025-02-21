@@ -68,11 +68,11 @@ int main( void )
     watchdog_init();
 #endif
 
-    LED_init();
+    // LED_init();
 
-    i2c_init();
+    // i2c_init();
 
-    ipmb_addr = get_ipmb_addr( );
+    // ipmb_addr = get_ipmb_addr( );
 
 #ifdef MODULE_FRU
     fru_init(FRU_AMC);
@@ -98,7 +98,7 @@ int main( void )
 #endif
     /*  Init IPMI interface */
     /* NOTE: ipmb_init() is called inside this function */
-    ipmi_init();
+    // ipmi_init();
 
 #ifdef MODULE_BOARD_CONFIG
     board_config();

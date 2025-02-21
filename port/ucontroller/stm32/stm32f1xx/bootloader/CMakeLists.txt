@@ -1,11 +1,10 @@
 set(BOOTLOADER_SRCS
-  ${CMAKE_CURRENT_SOURCE_DIR}/Src/stm32f1xx_hal_msp.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/Src/stm32f1xx_it.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/Src/main.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/Src/stm32f10x_it.c
   ${CMAKE_CURRENT_SOURCE_DIR}/Src/syscalls.c
   ${CMAKE_CURRENT_SOURCE_DIR}/Src/sysmem.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/Src/system_stm32f1xx.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/Src/main.c
-  ${CMAKE_CURRENT_SOURCE_DIR}/Startup/startup_stm32f103c8tx.s
+  ${CMAKE_CURRENT_SOURCE_DIR}/Src/system_stm32f10x.c
+  ${CMAKE_CURRENT_SOURCE_DIR}/Startup/startup_stm32f10x_md.s
 )
 
 set(CMAKE_ASM_FLAGS "")
@@ -20,7 +19,7 @@ set(CMAKE_ASM_FLAGS_DEBUG ${CMAKE_C_FLAGS_DEBUG})
 set(CMAKE_ASM_FLAGS_RELEASE ${CMAKE_C_FLAGS_RELEASE})
 set(CMAKE_ASM_FLAGS_RELWITHDEBINFO ${CMAKE_C_FLAGS_RELWITHDEBINFO})
 
-set(STM32_BOOT_FLAGS "-mcpu=cortex-m3 -std=gnu11 -DUSE_HAL_DRIVER -DSTM32F103xB -ffunction-sections -fdata-sections -Wall -fstack-usage --specs=nano.specs -mfloat-abi=soft -mthumb")
+set(STM32_BOOT_FLAGS "-mcpu=cortex-m3 -std=gnu11 -DDEGUG -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -ffunction-sections -fdata-sections -Wall -fstack-usage --specs=nano.specs -mfloat-abi=soft -mthumb")
 set(STM32_BOOT_LINK_FLAGS "-mcpu=cortex-m3 -T\"${CMAKE_CURRENT_SOURCE_DIR}/../linker/${TARGET_CONTROLLER}_boot.ld\" --specs=nosys.specs -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group")
 # message(STATUS "STM32_BOOT_FLAGS: ${STM32_BOOT_FLAGS}")
 # message(STATUS "STM32_BOOT_LINK_FLAGS: ${STM32_BOOT_LINK_FLAGS}")
@@ -38,6 +37,7 @@ target_include_directories(newboot PUBLIC
 # message(STATUS "STM32_BOOT_INC: ${UCONTROLLER_HDRS}")
 add_custom_command(TARGET newboot POST_BUILD
   COMMAND ${CMAKE_OBJCOPY} -O binary newboot.elf newboot.bin
+  COMMAND ${CMAKE_SIZE} newboot.elf
   WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
   COMMENT "Generate a raw binary image of the bootloader"
 )

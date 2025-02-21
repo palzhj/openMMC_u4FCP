@@ -32,8 +32,7 @@
 /**
  * @brief Default I2C interface to use in IPMB protocol
  */
-// #define IPMB_I2C                I2C0
-#define IPMB_I2C                0
+#define IPMB_I2C 0
 /**
  * @brief I2C Clock Frequency for IPMB - 100kHz
  */

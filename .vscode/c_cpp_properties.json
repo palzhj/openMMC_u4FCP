@@ -1,0 +1,42 @@
+{
+    "configurations": [
+        {
+            "name": "openmmc",
+            "includePath": [
+                "${workspaceFolder}/port/ucontroller/stm32/stm32f1xx",
+                "${workspaceFolder}/port/ucontroller/stm32/stm32f1xx/Libraries/STM32F10x_StdPeriph_Driver/inc",
+                "${workspaceFolder}/port/ucontroller/stm32/stm32f1xx/Libraries/CMSIS/CM3/CoreSupport",
+                "${workspaceFolder}/port/board/u4fcp-v2",
+                "${workspaceFolder}/port/board/ufc-common",
+                "${workspaceFolder}/modules",
+                "${workspaceFolder}/modules/sensors",
+                "${workspaceFolder}/FreeRTOS/include",
+                "${workspaceFolder}/FreeRTOS/portable/GCC/ARM_CM3"
+            ],
+            "defines": [
+                "STM32F10X_MD",
+                "USE_STDPERIPH_DRIVER",
+                "TARGET_CONTROLLER=STM32F103C8T6",
+                "TARGET_BOARD_NAME=\"uFCP v2.0\"",
+                "DEBUG",
+                // "MODULE_PAYLOAD",
+                "MODULE_BOARD_CONFIG",
+                "MODULE_UART_DEBUG",
+                // "MODULE_SDR",
+                // "MODULE_WATCHDOG",
+                // "SENSORS",
+                // "MODULE_HOTSWAP"
+            ],
+            "compilerPath": "/usr/bin/arm-none-eabi-gcc",
+            "intelliSenseMode": "gcc-x64",
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "databaseFilename": "",
+                "path": [
+                    "${workspaceFolder}"
+                ]
+            }
+        }
+    ],
+    "version": 4
+}

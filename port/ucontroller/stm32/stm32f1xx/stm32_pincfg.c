@@ -19,10 +19,9 @@
 
 /**
  * @file stm32_pincfg.c
- * @brief Pin Config functions redirection for STM32xx
+ * @brief Pin Config functions redirection for STM32
  *
  * @author Henrique Silva <henrique.silva@lnls.br>, LNLS
- * @author Jie Zhang <zhj@ihep.ac.cn>, IHEP
  */
 
 #include "port.h"
@@ -32,35 +31,57 @@
  * @param       port    : GPIO port to mux
  * @param       pin     : GPIO pin to mux
  * @param       cfg     : Configuration bits to select pin mode/function
+ * @see IOCON_17XX_40XX_MODE_FUNC
  */
 
-void pin_init( void )
+void pin_init(void)
 {
-    // uint8_t i;
-    // uint32_t cfg[] = { PIN_CFG_LIST };
-    // uint8_t list_len = sizeof(cfg)/(sizeof(cfg[0]));
+  uint8_t i;
+  uint32_t cfg[] = {PIN_CFG_LIST};
+  uint8_t list_len = sizeof(cfg) / (sizeof(cfg[0]));
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
+  GPIO_InitStruct.GPIO_Speed  = GPIO_Speed_2MHz;
 
-    // for ( i = 0; i < list_len; i++ ) {
-    //     Chip_IOCON_PinMuxSet(LPC_IOCON, PIN_PORT(cfg[i]), PIN_NUMBER(cfg[i]), PIN_FUNC(cfg[i]));
-    //     if ( PIN_DIR(cfg[i]) != NON_GPIO ) {
-    //         /* Config GPIO direction */
-    //         gpio_set_pin_dir( PIN_PORT(cfg[i]), PIN_NUMBER(cfg[i]), PIN_DIR(cfg[i]));
-    //     }
-    // }
-    __set_PRIMASK(0);
+  /* GPIO Ports Clock Enable */
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
 
-    UART_HandleTypeDef huart1;
-    huart1.Instance = USART1;
-    huart1.Init.BaudRate = 115200;
-    huart1.Init.WordLength = UART_WORDLENGTH_8B;
-    huart1.Init.StopBits = UART_STOPBITS_1;
-    huart1.Init.Parity = UART_PARITY_NONE;
-    huart1.Init.Mode = UART_MODE_TX_RX;
-    huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-    huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-    while (1)
+  for (i = 0; i < list_len; i++)
+  {
+    if(PIN_DIR(cfg[i]) != NON_GPIO)
     {
-        HAL_UART_Transmit(&huart1, "Hello world!\r\n", 15, 0xFFFF);
+      if (PIN_DIR(cfg[i]) == GPIO_DIR_INPUT)
+      {
+        GPIO_InitStruct.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
+      }
+      else if (PIN_DIR(cfg[i]) == GPIO_DIR_OUTPUT)
+      {
+        GPIO_InitStruct.GPIO_Mode  = GPIO_Mode_Out_PP;
+        if(PIN_FUNC(cfg[i]) == GPIO_LEVEL_HIGH)
+        {
+          GPIO_SetBits(PIN_PORT(cfg[i]), 1<<PIN_NUMBER(cfg[i]));
+        }
+        else
+        {
+          GPIO_ResetBits(PIN_PORT(cfg[i]), 1<<PIN_NUMBER(cfg[i]));
+        }
+      }
+      GPIO_InitStruct.GPIO_Pin  = 1<<PIN_NUMBER(cfg[i]);
+      GPIO_Init(PIN_PORT(cfg[i]), &GPIO_InitStruct);
     }
+  }
+}
 
+GPIO_TypeDef *PIN_PORT(uint32_t pin_def)
+{
+  switch ((pin_def & 0xFF000000) >> 24)
+  {
+    case 1:
+      return GPIOB;
+    case 2:
+      return GPIOC;
+    default:
+      return GPIOA;
+  }
 }

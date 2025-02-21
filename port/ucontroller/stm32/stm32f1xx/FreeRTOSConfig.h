@@ -47,15 +47,18 @@ licensing and training services.
  * THESE PARAMETERS ARE DESCRIBED WITHIN THE 'CONFIGURATION' SECTION OF THE
  * FreeRTOS API DOCUMENTATION AVAILABLE ON THE FreeRTOS.org WEB SITE.
  *----------------------------------------------------------*/
-
+#if defined(__ICCARM__) || defined(__CC_ARM) || defined(__GNUC__)
+  #include <stdint.h>
+  extern uint32_t SystemCoreClock;
+#endif
 #define configUSE_PREEMPTION                    1
 #define configUSE_IDLE_HOOK                     0
 #define configMAX_PRIORITIES                    ( 6 )
 #define configUSE_TICK_HOOK                     0
-#define configCPU_CLOCK_HZ                      ( ( unsigned long ) 8000000)
+#define configCPU_CLOCK_HZ                      ( SystemCoreClock )
 #define configTICK_RATE_HZ                      ( ( portTickType ) 1000 )
-#define configMINIMAL_STACK_SIZE                ( ( unsigned short ) 80 )
-#define configTOTAL_HEAP_SIZE                   ( ( size_t ) ( 0x4000 ) )
+#define configMINIMAL_STACK_SIZE                ( ( uint16_t ) 128 )
+#define configTOTAL_HEAP_SIZE                   ( ( size_t ) ( 10*1024 ) )
 #define configMAX_TASK_NAME_LEN                 ( 12 )
 #define configUSE_TRACE_FACILITY                1
 #define configUSE_16_BIT_TICKS                  0
@@ -95,7 +98,7 @@ extern void vConfigureTimerForRunTimeStats( void );
    to exclude the API function. */
 
 #define INCLUDE_vTaskPrioritySet                1
-#define INCLUDE_uxTaskPriorityGet               0
+#define INCLUDE_uxTaskPriorityGet               1
 #define INCLUDE_vTaskDelete                     1
 #define INCLUDE_vTaskCleanUpResources           1
 #define INCLUDE_vTaskSuspend                    1
@@ -108,7 +111,7 @@ extern void vConfigureTimerForRunTimeStats( void );
 #ifdef __NVIC_PRIO_BITS
 #define configPRIO_BITS       __NVIC_PRIO_BITS
 #else
-#define configPRIO_BITS                         5   /* 32 priority levels */
+#define configPRIO_BITS                         4   /* 32 priority levels */
 #endif
 
 /* The lowest priority. */

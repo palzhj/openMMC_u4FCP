@@ -31,7 +31,6 @@
 #include "string.h"
 #include "task_priorities.h"
 #include "fru.h"
-#include "led.h"
 #include "board_led.h"
 
 

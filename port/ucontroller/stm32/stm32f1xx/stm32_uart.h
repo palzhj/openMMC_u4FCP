@@ -29,29 +29,35 @@
 #ifndef STM32_UART_H_
 #define STM32_UART_H_
 
-#include "string.h"
-#include "stdio.h"
+#include "port.h"
 
-// typedef struct lpc_uart_cfg {
-//     LPC_USART_T * ptr;
-//     IRQn_Type irq;
-//     CHIP_SYSCTL_PCLK_T sysclk;
-// } lpc_uart_cfg_t;
+typedef enum UART_ID
+{
+  UART1_ID,            /**< ID USART1 */
+  UART2_ID,            /**< ID USART2 */
+  UART3_ID,            /**< ID USART3 */
+  UART_NUM_INTERFACE /**< Number of I2C interfaces in the chip */
+} UART_ID_T;
 
-// extern const lpc_uart_cfg_t usart_cfg[4];
+#define UART_DEBUG UART1_ID // 0=USART1
 
-// #define uart_set_baud( id, baud ) Chip_UART_SetBaud( usart_cfg[id].ptr, baud )
-// #define uart_config_data( id, cfg ) Chip_UART_ConfigData( usart_cfg[id].ptr, cfg )
-// #define uart_tx_enable( id ) Chip_UART_TXEnable( usart_cfg[id].ptr )
-// #define uart_tx_disable( id ) Chip_UART_TXDisable( usart_cfg[id].ptr )
-// #define uart_int_enable( id, mask ) Chip_UART_IntEnable( usart_cfg[id].ptr, mask )
-// #define uart_int_disable( id, mask ) Chip_UART_IntDisable( usart_cfg[id].ptr, mask )
-// #define uart_send_char( id, ch ) Chip_UART_SendByte( usart_cfg[id].ptr, ch )
-// #define uart_read_char( id ) Chip_UART_ReadByte( usart_cfg[id].ptr )
-// #define uart_send( id, msg, len ) Chip_UART_SendBlocking( usart_cfg[id].ptr, msg, len )
-#define uart_send( id, msg, len ) 1
-// #define uart_read( id, buf, len ) Chip_UART_ReadBlocking( usart_cfg[id].ptr, buf, len )
+typedef struct stm32_uart_cfg
+{
+  USART_TypeDef *ptr;
+  IRQn_Type irq;
+} stm32_uart_cfg_t;
 
-// void uart_init ( uint8_t id );
+extern const stm32_uart_cfg_t usart_cfg[3];
+
+#define uart_tx_enable(id) USART_Cmd(usart_cfg[id].ptr, ENABLE)
+#define uart_tx_disable(id) USART_Cmd(usart_cfg[id].ptr, DISABLE)
+#define uart_int_enable(id, mask) USART_ITConfig(usart_cfg[id].ptr, mask, ENABLE)
+#define uart_int_disable(id, mask) USART_ITConfig(usart_cfg[id].ptr, mask, DISABLE)
+#define uart_send_char(id, ch) USART_SendData(usart_cfg[id].ptr, (uint16_t)ch)
+#define uart_read_char(id) USART_ReceiveData(usart_cfg[id].ptr)
+
+void uart_init(uint8_t id);
+void uart_send(uint8_t id, char *msg, uint32_t len);
+void uart_read(uint8_t id, char *buf, uint32_t len);
 
 #endif

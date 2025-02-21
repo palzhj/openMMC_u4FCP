@@ -1,55 +1,47 @@
 set(STM32F1XX_PATH ${CMAKE_CURRENT_SOURCE_DIR})
-set(STM32F1XX_HAL_SRCPATH ${STM32F1XX_PATH}/STM32F1xx_HAL_Driver/Src)
-set(STM32F1XX_HAL_INCPATH ${STM32F1XX_PATH}/STM32F1xx_HAL_Driver/Inc)
-set(STM32F1XX_LEGACY_INCPATH ${STM32F1XX_PATH}/STM32F1xx_HAL_Driver/Inc/Legacy)
-set(CMSIS_INCPATH ${STM32F1XX_PATH}/CMSIS/Include)
-set(CMSIS_ST_INCPATH ${STM32F1XX_PATH}/CMSIS/Device/ST/STM32F1xx/Include)
+set(STM32F1XX_SPL_SRCPATH ${STM32F1XX_PATH}/Libraries/STM32F10x_StdPeriph_Driver/src)
+set(STM32F1XX_SPL_INCPATH ${STM32F1XX_PATH}/Libraries/STM32F10x_StdPeriph_Driver/inc)
+set(CMSIS_INCPATH ${STM32F1XX_PATH}/Libraries/CMSIS/CM3/CoreSupport)
 
 #Silence GCC Warnings
 # add_compile_options( -Wno-switch -Wno-unused-but-set-variable )
 
 set(UCONTROLLER_SRCS
-  ${STM32F1XX_PATH}/startup_stm32f103c8tx.s
-  ${STM32F1XX_PATH}/system_stm32f1xx.c
-  ${STM32F1XX_PATH}/stm32f1xx_it.c
+  ${STM32F1XX_PATH}/startup_stm32f10x_md.s
+  ${STM32F1XX_PATH}/system_stm32f10x.c
+  ${STM32F1XX_PATH}/stm32f10x_it.c
   ${STM32F1XX_PATH}/sysmem.c
   ${STM32F1XX_PATH}/syscalls.c
+  ${STM32F1XX_PATH}/stm32_pincfg.c
   )
 
 set(UCONTROLLER_HDRS
   ${STM32F1XX_PATH}
-  ${STM32F1XX_HAL_INCPATH}
-  ${STM32F1XX_LEGACY_INCPATH}
+  ${STM32F1XX_SPL_INCPATH}
   ${CMSIS_INCPATH}
-  ${CMSIS_ST_INCPATH}
   )
 
 set(LIBSTM32F1XX_SRCS
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_cortex.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_dma.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_exti.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_flash.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_flash_ex.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_gpio.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_gpio_ex.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_i2c.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_pwr.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_rcc.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_rcc_ex.c
-  ${STM32F1XX_HAL_SRCPATH}/stm32f1xx_hal_uart.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_dma.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_exti.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_flash.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_gpio.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_i2c.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_pwr.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_rcc.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_tim.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_usart.c
+  ${STM32F1XX_SPL_SRCPATH}/stm32f10x_wwdg.c
+  ${STM32F1XX_PATH}/Libraries/CMSIS/CM3/CoreSupport/core_cm3.c
 
   ${STM32F1XX_PATH}/stm32_i2c.c
-  # ${STM32F1XX_PATH}/lpc17_spi.c
-  # ${STM32F1XX_PATH}/lpc17_ssp.c
   # ${STM32F1XX_PATH}/lpc17_hpm.c
-  ${STM32F1XX_PATH}/stm32_pincfg.c
   )
 
 if( UART_RINGBUFFER )
   set(LIBSTM32F1XX_SRCS
     ${LIBSTM32F1XX_SRCS}
-    # ${STM32F1XX_HAL_SRCPATH}/ring_buffer.c
+    # ${STM32F1XX_SPL_SRCPATH}/ring_buffer.c
     # ${STM32F1XX_PATH}/lpc17_uartrb.c
   )
   set(MODULES_FLAGS ${MODULES_FLAGS} -DUART_RINGBUFFER PARENT_SCOPE)
@@ -63,8 +55,8 @@ endif()
 set(TARGET_CPU      "cortex-m3")
 
 set(STM32_FLAGS ${STM32_FLAGS} -mcpu=${TARGET_CPU})
-set(STM32_FLAGS ${STM32_FLAGS} -DSTM32F103xB)
-set(STM32_FLAGS ${STM32_FLAGS} -DUSE_HAL_DRIVER)
+set(STM32_FLAGS ${STM32_FLAGS} -DSTM32F10X_MD)
+set(STM32_FLAGS ${STM32_FLAGS} -DUSE_STDPERIPH_DRIVER)
 set(STM32_FLAGS ${STM32_FLAGS} -mthumb -mthumb-interwork -mfloat-abi=soft)
 
 string(REGEX REPLACE ";" " " STM32_FLAGS "${STM32_FLAGS}")
