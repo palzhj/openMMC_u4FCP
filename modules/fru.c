@@ -27,12 +27,7 @@
 #include "port.h"
 #include "fru.h"
 #include "fru_editor.h"
-#include "at24mac.h"
-#include "eeprom_24xx64.h"
 #include "utils.h"
-#include "ipmi.h"
-#include "i2c_mapping.h"
-#include "uart_debug.h"
 
 extern fru_data_t fru[FRU_COUNT];
 

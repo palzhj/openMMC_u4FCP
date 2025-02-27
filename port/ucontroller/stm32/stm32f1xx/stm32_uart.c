@@ -120,12 +120,12 @@ void uart_init(uint8_t id)
   /* Enable USART */
   USART_Cmd(usart_cfg[id].ptr, ENABLE);
 
-  xTaskCreate(StartDefaultTask,           // Task function
-    "UART Task",         // Task name
-    128,                // Stack size (in words)
-    NULL,               // Parameters passed to the task (NULL in this case)
-    (( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,                  // Task priority (1 is the lowest priority)
-    NULL);
+  // xTaskCreate(StartDefaultTask,           // Task function
+  //   "UART Task",         // Task name
+  //   configMINIMAL_STACK_SIZE,                // Stack size (in words)
+  //   NULL,               // Parameters passed to the task (NULL in this case)
+  //   (( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,                  // Task priority (1 is the lowest priority)
+  //   NULL);
 }
 
 /**

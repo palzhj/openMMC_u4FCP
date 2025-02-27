@@ -26,7 +26,7 @@
 #include "fru.h"
 #include "fru_editor.h"
 #include "at24mac.h"
-#include "eeprom_24xx64.h"
+#include "eeprom_24xx512.h"
 #include "i2c_mapping.h"
 #ifdef MODULE_RTM
 #include "rtm_i2c_mapping.h"
@@ -36,8 +36,8 @@ fru_data_t fru[FRU_COUNT] = {
         .cfg = {
             .eeprom_id = CHIP_ID_EEPROM,
             .build_f = amc_fru_info_build,
-            .read_f = at24mac_read,
-            .write_f = at24mac_write,
+            .read_f = eeprom_24xx512_read,
+            .write_f = eeprom_24xx512_write,
         },
         .runtime = false
     },
@@ -47,8 +47,8 @@ fru_data_t fru[FRU_COUNT] = {
         .cfg = {
             .eeprom_id = CHIP_ID_RTM_EEPROM,
             .build_f = rtm_fru_info_build,
-            .read_f = eeprom_24xx64_read,
-            .write_f = eeprom_24xx64_write,
+            .read_f = eeprom_24xx512_read,
+            .write_f = eeprom_24xx512_write,
         },
         .runtime = false
     }

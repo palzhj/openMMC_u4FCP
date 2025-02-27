@@ -33,7 +33,7 @@ i2c_chip_mapping_t i2c_chip_map[I2C_CHIP_CNT] = {
   [CHIP_ID_TCA9554_JTAG_0]= {I2C_BUS_FPGA_ID,   0x39},
   // [CHIP_ID_FIREFLY_0]     = {I2C_BUS_FIREFLY_ID,0x50},
   // [CHIP_ID_DDR4]        = {I2C_BUS_DDR4_ID,   0x0},
-  [CHIP_ID_EEPROM_0]      = {I2C_BUS_POWER_ID,  0x54},
+  [CHIP_ID_EEPROM]        = {I2C_BUS_POWER_ID,  0x54},
   [CHIP_ID_PMBUS_0]       = {I2C_BUS_POWER_ID,  0x11},
   [CHIP_ID_TPL0102_0]     = {I2C_BUS_POWER_ID,  0x56}
 };

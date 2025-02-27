@@ -27,24 +27,24 @@
  * Common defines
  *********************************************/
 #define AMC_LANG_CODE               0
-#define AMC_FRU_FILE_ID             "AFCFRU"       //Allows knowing the source of the FRU present in the memory
+#define AMC_FRU_FILE_ID             "UFCFRU"       //Allows knowing the source of the FRU present in the memory
 
 /*********************************************
  * Board information area
  *********************************************/
 #define AMC_BOARD_MANUFACTURING_TIME 13076640               /* Amount of minutes since 0:00 1/1/96 */
-#define AMC_BOARD_MANUFACTURER      "Creotech"
+#define AMC_BOARD_MANUFACTURER      "IHEP"
 #define AMC_BOARD_NAME              "AMC-FMC-Carrier"
 #define AMC_BOARD_SN                "CNxxxxx"
-#define AMC_BOARD_PN                "AFC"
+#define AMC_BOARD_PN                "UFC"
 
 /*********************************************
  * Product information area
  *********************************************/
-#define AMC_PRODUCT_MANUFACTURER    "Creotech"
-#define AMC_PRODUCT_NAME            "AFC"
-#define AMC_PRODUCT_PN              "AFC:4.0"
-#define AMC_PRODUCT_VERSION         "4.0"
+#define AMC_PRODUCT_MANUFACTURER    "IHEP"
+#define AMC_PRODUCT_NAME            "uFC"
+#define AMC_PRODUCT_PN              "u4FCP:2.0"
+#define AMC_PRODUCT_VERSION         "2.0"
 #define AMC_PRODUCT_SN              "CNxxxxx"
 #define AMC_PRODUCT_ASSET_TAG       "Generic FRU"
 
@@ -65,7 +65,7 @@
 /**********************************************
  * PICMG: Module current record
  **********************************************/
-#define AMC_MODULE_CURRENT_RECORD            current_in_ma(4000)
+#define AMC_MODULE_CURRENT_RECORD            current_in_ma(6500)
 
 /*********************************************
  * RTM Compatibility Record

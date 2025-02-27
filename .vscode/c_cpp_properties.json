@@ -19,9 +19,12 @@
                 "TARGET_CONTROLLER=STM32F103C8T6",
                 "TARGET_BOARD_NAME=\"uFCP v2.0\"",
                 "DEBUG",
+                "FRU_WRITE_EEPROM",
                 // "MODULE_PAYLOAD",
                 "MODULE_BOARD_CONFIG",
                 "MODULE_UART_DEBUG",
+                "MODULE_FRU",
+                "MODULE_EEPROM_24XX512"
                 // "MODULE_SDR",
                 // "MODULE_WATCHDOG",
                 // "SENSORS",

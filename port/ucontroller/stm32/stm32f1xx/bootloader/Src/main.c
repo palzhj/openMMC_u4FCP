@@ -327,6 +327,97 @@ void DEBUG_UART_Init(void)
   USART_Cmd(USART1, ENABLE);
 }
 
+// void DEBUG_I2C_Init(void)
+// {
+//   GPIO_InitTypeDef GPIO_InitStruct;
+//   I2C_InitTypeDef I2C_InitStructure;
+
+//   /*!< I2C_SCL_GPIO_CLK and I2C_SDA_GPIO_CLK Periph clock enable */
+//   RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+//   /*!< GPIO configuration */
+//   /*!< Configure I2C pins: SCL(PB10) and SDA(PB11) */
+//   GPIO_InitStruct.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_11;
+//   GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF_OD;
+//   GPIO_InitStruct.GPIO_Speed  = GPIO_Speed_2MHz;
+//   GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+//   /*!< I2C Periph clock enable */
+//   RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C2, ENABLE);  // Enable I2C2 clock
+
+//   I2C_StructInit(&I2C_InitStructure);  // Reset I2C_InitStructure to default values
+
+//   I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;               // Set to I2C mode
+//   I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;       // Standard duty cycle (50%)
+//   I2C_InitStructure.I2C_OwnAddress1 = 0x00;                 // No address for master mode
+//   I2C_InitStructure.I2C_Ack = I2C_Ack_Enable;               // Enable acknowledgment
+//   I2C_InitStructure.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit;  // 7-bit addressing mode
+//   I2C_InitStructure.I2C_ClockSpeed = 100000;                 // Set I2C clock speed to 100kHz (can be adjusted)
+
+//   I2C_Init(I2C2, &I2C_InitStructure);  // Initialize the I2C peripheral
+
+//   // Enable the I2C peripheral in master mode
+//   I2C_Cmd(I2C2, ENABLE);  // Enable I2C peripheral
+
+// }
+
+// #define I2C_TIMEOUT 1000
+
+// int I2CMasterWrite(uint8_t slave_addr, uint8_t *tx_buff, uint8_t buff_len)
+// {
+//   uint32_t timeout = I2C_TIMEOUT; // Set timeout duration
+//   uint8_t i;
+//   slave_addr = slave_addr <<1;
+
+//   // Wait until the I2C peripheral is not busy
+//   while (I2C_GetFlagStatus(I2C2, I2C_FLAG_BUSY))
+//   {
+//     if (timeout-- == 0)
+//       return 1; // Timeout occurred while waiting for the I2C to be idle.
+//   }
+
+//   // Generate the START condition
+//   I2C_GenerateSTART(I2C2, ENABLE);
+
+//   // Wait for the START condition to be transmitted
+//   timeout = I2C_TIMEOUT;
+//   while (!I2C_CheckEvent(I2C2, I2C_EVENT_MASTER_MODE_SELECT))
+//   {
+//     if (timeout-- == 0)
+//       return 2; // Timeout occurred while waiting for the START condition to be transmitted.
+//   }
+
+//   // Send the slave address with the write mode (LSB = 0 for write)
+//   I2C_Send7bitAddress(I2C2, slave_addr, I2C_Direction_Transmitter);
+
+//   // Wait for the slave to acknowledge the address
+//   timeout = I2C_TIMEOUT;
+//   while (!I2C_CheckEvent(I2C2, I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
+//   {
+//     if (timeout-- == 0)
+//       return 3; // Timeout occurred while waiting for the slave address acknowledgment.
+//   }
+
+//   // Send each byte of the data buffer
+//   for (i = 0; i < buff_len; i++)
+//   {
+//     I2C_SendData(I2C2, tx_buff[i]);
+
+//     // Wait for the byte to be transmitted
+//     timeout = I2C_TIMEOUT;
+//     while (!I2C_CheckEvent(I2C2, I2C_EVENT_MASTER_BYTE_TRANSMITTED))
+//     {
+//       if (timeout-- == 0)
+//         return 4; // Timeout occurred while waiting for data byte transmission.
+//     }
+//   }
+
+//   // Generate the STOP condition
+//   I2C_GenerateSTOP(I2C2, ENABLE);
+
+//   // Return success
+//   return 0;
+// }
+
 /**
  * @brief  Main program.
  * @param  None
@@ -349,7 +440,25 @@ int main(void)
     uart1_write_str_blocking(__DATE__);
     uart1_write_str_blocking(" ");
     uart1_write_str_blocking(__TIME__);
-    uart1_write_str_blocking("\r\n");
+    uart1_write_str_blocking(" \r\n");
+
+    // #define ADDR_TCA9548A 0x70
+    // DEBUG_I2C_Init();
+    // uint8_t I2c_pmbus_en    = 1;  // bit7
+    // uint8_t I2c_ddr_en      = 0;  // bit6
+    // uint8_t I2c_rtm_en      = 0;  // bit5
+    // uint8_t I2c_fpga_en     = 0;  // bit4
+    // uint8_t I2c_firefly_en  = 0;  // bit3
+    // uint8_t I2c_clk_en      = 0;  // bit2
+    // uint8_t I2c_fmc1_en     = 0;  // bit1
+    // uint8_t I2c_fmc0_en     = 0;  // bit0
+    // uint8_t i2c_sw = (I2c_pmbus_en << 7) | (I2c_ddr_en << 6) | (I2c_rtm_en << 5) | (I2c_fpga_en << 4) |
+    //     (I2c_firefly_en << 3) |  (I2c_clk_en << 2) |  (I2c_fmc1_en << 1) |  I2c_fmc0_en;
+
+    // while(I2CMasterWrite((uint16_t)ADDR_TCA9548A, &i2c_sw, 1)!=0)
+    // {
+    //   uart1_write_str_blocking("I2C MUX (TCA9548A) config ERROR!\r\n");
+    // }
 
     /* Check for firmware update */
     if (fw_header->magic == 0xAAAAAAAA)

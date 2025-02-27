@@ -46,9 +46,9 @@ typedef enum I2C_ID
 #define i2cMAX_MSG_LENGTH 32
 #define I2C_TIMEOUT 1000
 
-int xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8_t buff_len);
-int xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_t buff_len);
-int xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, uint8_t tx_len, uint8_t *rx_buff, uint8_t rx_len);
-int xI2CSlaveReceive(I2C_ID_T id, uint8_t *rx_buff, uint8_t buff_len, uint32_t timeout);
+uint8_t xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8_t buff_len);
+uint8_t xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_t buff_len);
+uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, uint8_t tx_len, uint8_t *rx_buff, uint8_t rx_len);
+uint8_t xI2CSlaveReceive(I2C_ID_T id, uint8_t *rx_buff, uint8_t buff_len, uint32_t timeout);
 void vI2CSlaveSetup(I2C_ID_T id, uint8_t slave_addr);
 void vI2CConfig(I2C_ID_T id, uint32_t speed);
