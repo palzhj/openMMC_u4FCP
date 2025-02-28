@@ -42,10 +42,11 @@ void pin_init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   GPIO_InitStruct.GPIO_Speed  = GPIO_Speed_2MHz;
 
+  GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable,ENABLE);
+
   /* GPIO Ports Clock Enable */
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOC, ENABLE);
+  RCC_APB2PeriphClockCmd( RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOB | RCC_APB2Periph_GPIOC
+    | RCC_APB2Periph_AFIO, ENABLE );
 
   for (i = 0; i < list_len; i++)
   {

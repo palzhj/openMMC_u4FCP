@@ -35,8 +35,8 @@ ENTRY(Reset_Handler)
 _estack = 0x20005000;    /* end of 20K RAM */
 
 /* Generate a link error if heap and stack don't fit into RAM */
-_Min_Heap_Size = 0;      /* required amount of heap  */
-_Min_Stack_Size = 0x200; /* required amount of stack */
+_Min_Heap_Size  = 1K;    /* required amount of heap  */
+_Min_Stack_Size = 512;    /* required amount of stack */
 
 /* Specify the memory areas */
 MEMORY
@@ -123,6 +123,8 @@ SECTIONS
     _sdata = .;        /* create a global symbol at data start */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
+    *(.RamFunc)        /* .RamFunc sections */
+    *(.RamFunc*)       /* .RamFunc* sections */
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */

@@ -26,6 +26,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_conf.h"
 #include <stdio.h>
+#include <string.h>
 
 /* Private typedef -----------------------------------------------------------*/
 enum fw_update_type
@@ -440,7 +441,7 @@ int main(void)
     uart1_write_str_blocking(__DATE__);
     uart1_write_str_blocking(" ");
     uart1_write_str_blocking(__TIME__);
-    uart1_write_str_blocking(" \r\n");
+    uart1_write_str_blocking("\r\n");
 
     // #define ADDR_TCA9548A 0x70
     // DEBUG_I2C_Init();

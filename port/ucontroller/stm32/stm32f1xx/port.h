@@ -34,6 +34,7 @@
 /* List of all STM32xx specific headers to be included */
 
 #include "stm32f10x_conf.h"
+#include "misc.h"
 #include "stm32_gpio.h"
 #include "stm32_i2c.h"
 // #include "lpc17_ssp.h"
