@@ -98,7 +98,7 @@ int main( void )
 #endif
     /*  Init IPMI interface */
     /* NOTE: ipmb_init() is called inside this function */
-    // ipmi_init();
+    ipmi_init();
 
 #ifdef MODULE_BOARD_CONFIG
     board_config();
