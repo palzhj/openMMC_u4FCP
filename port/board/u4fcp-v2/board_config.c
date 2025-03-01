@@ -24,11 +24,11 @@
 
 void board_init()
 {
-  NVIC_PriorityGroupConfig( NVIC_PriorityGroup_4 );
+  // NVIC_PriorityGroupConfig( NVIC_PriorityGroup_4 );
 }
 
 void board_config()
 {
-  // Enable interrupt
+  // // Enable interrupt
   // __set_PRIMASK(0);
 }

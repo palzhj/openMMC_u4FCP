@@ -121,18 +121,33 @@ extern void vConfigureTimerForRunTimeStats( void );
 #define configPRIO_BITS                         4   /* 32 priority levels */
 #endif
 
-/* The lowest priority. */
-// #define configKERNEL_INTERRUPT_PRIORITY         ( 31 << (8 - configPRIO_BITS) )
-#define configKERNEL_INTERRUPT_PRIORITY         ( 255 )
-/* Priority 5, or 160 as only the top three bits are implemented. */
-// #define configMAX_SYSCALL_INTERRUPT_PRIORITY    ( 5 << (8 - configPRIO_BITS) )
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY    ( 191 ) /* equivalent to 0xb0, or priority 11. */
+/* The lowest interrupt priority that can be used in a call to a "set priority"
+function. */
+#define configLIBRARY_LOWEST_INTERRUPT_PRIORITY   15
 
-/* This is the value being used as per the ST library which permits 16
-priority values, 0 to 15.  This must correspond to the
-configKERNEL_INTERRUPT_PRIORITY setting.  Here 15 corresponds to the lowest
-NVIC value of 255. */
-#define configLIBRARY_KERNEL_INTERRUPT_PRIORITY	15
+/* The highest interrupt priority that can be used by any interrupt service
+routine that makes calls to interrupt safe FreeRTOS API functions.  DO NOT CALL
+INTERRUPT SAFE FREERTOS API FUNCTIONS FROM ANY INTERRUPT THAT HAS A HIGHER
+PRIORITY THAN THIS! (higher priorities are lower numeric values. */
+#define configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY 5
+
+/* Interrupt priorities used by the kernel port layer itself.  These are generic
+to all Cortex-M ports, and do not rely on any particular library functions. */
+#define configKERNEL_INTERRUPT_PRIORITY 		( configLIBRARY_LOWEST_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
+/* !!!! configMAX_SYSCALL_INTERRUPT_PRIORITY must not be set to zero !!!!
+See http://www.FreeRTOS.org/RTOS-Cortex-M3-M4.html. */
+#define configMAX_SYSCALL_INTERRUPT_PRIORITY 	( configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY << (8 - configPRIO_BITS) )
+
+// /* The lowest priority. */
+// #define configKERNEL_INTERRUPT_PRIORITY         ( 31 << (8 - configPRIO_BITS) )
+// /* Priority 5, or 160 as only the top three bits are implemented. */
+// #define configMAX_SYSCALL_INTERRUPT_PRIORITY    ( 5 << (8 - configPRIO_BITS) )
+
+// /* This is the value being used as per the ST library which permits 16
+// priority values, 0 to 15.  This must correspond to the
+// configKERNEL_INTERRUPT_PRIORITY setting.  Here 15 corresponds to the lowest
+// NVIC value of 255. */
+// #define configLIBRARY_KERNEL_INTERRUPT_PRIORITY	15
 
 /*
  * Use the Cortex-M3 optimisations, rather than the generic C implementation.

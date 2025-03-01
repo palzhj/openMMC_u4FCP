@@ -33,134 +33,36 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#define SLAVE_MASK 0xFF
+// /**
+//  * @brief	I2C transfer status
+//  */
+// typedef enum {
+// 	I2C_STATUS_DONE,	/**< Transfer done successfully */
+// 	I2C_STATUS_NAK,		/**< NAK received during transfer */
+// 	I2C_STATUS_ARBLOST,	/**< Aribitration lost during transfer */
+// 	I2C_STATUS_BUSERR,	/**< Bus error in I2C transfer */
+// 	I2C_STATUS_BUSY,	/**< I2C is busy doing transfer */
+// } I2C_STATUS_T;
 
-/* State machine handler for I2C1 and I2C2 */
-static void i2c_state_handling(I2C_ID_T id)
-{
-  // if (Chip_I2C_IsMasterActive(id))
-  // {
-  //   Chip_I2C_MasterStateHandler(id);
-  // }
-  // else
-  // {
-  //   Chip_I2C_SlaveStateHandler(id);
-  // }
-}
-
-void I2C1_IRQHandler(void)
-{
-  i2c_state_handling(I2C1_ID);
-}
-
-void I2C2_IRQHandler(void)
-{
-  i2c_state_handling(I2C2_ID);
-}
-
-void vI2CConfig(I2C_ID_T id, uint32_t speed)
-{
-  I2C_TypeDef *I2Cx;
-  // IRQn_Type irq;
-  GPIO_InitTypeDef GPIO_InitStruct;
-  // NVIC_InitTypeDef NVIC_InitStruct;
-  I2C_InitTypeDef I2C_InitStructure;
-
-  /*!< I2C_SCL_GPIO_CLK and I2C_SDA_GPIO_CLK Periph clock enable */
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
-  switch (id)
-  {
-  case I2C2_ID:
-    I2Cx = I2C2;
-    // irq = I2C2_EV_IRQn;
-    /*!< I2C Periph clock enable */
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C2, ENABLE); // Enable I2C2 clock
-    /*!< GPIO configuration */
-    /*!< Configure I2C pins: SCL(PB10) and SDA(PB11) */
-    GPIO_InitStruct.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_11;
-    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF_OD;
-    GPIO_InitStruct.GPIO_Speed = GPIO_Speed_2MHz;
-    GPIO_Init(GPIOB, &GPIO_InitStruct);
-    break;
-  default:
-    I2Cx = I2C1;
-    // irq = I2C1_EV_IRQn;
-    /*!< I2C Periph clock enable */
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE); // Enable I2C1 clock
-    /*!< GPIO configuration */
-    /*!< Configure I2C pins: SCL(PB6) and SDA(PB7) */
-    GPIO_InitStruct.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
-    GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF_OD;
-    GPIO_InitStruct.GPIO_Speed = GPIO_Speed_2MHz;
-    GPIO_Init(GPIOB, &GPIO_InitStruct);
-  }
-
-  I2C_StructInit(&I2C_InitStructure); // Reset I2C_InitStructure to default values
-
-  I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;                                // Set to I2C mode
-  I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;                        // Standard duty cycle (50%)
-  I2C_InitStructure.I2C_OwnAddress1 = 0x00;                                 // No address for master mode
-  I2C_InitStructure.I2C_Ack = I2C_Ack_Enable;                               // Enable acknowledgment
-  I2C_InitStructure.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit; // 7-bit addressing mode
-  I2C_InitStructure.I2C_ClockSpeed = speed;                                 // Set I2C clock speed to 100kHz (can be adjusted)
-
-  I2C_Init(I2Cx, &I2C_InitStructure); // Initialize the I2C peripheral
-
-  // Enable the I2C peripheral in master mode
-  I2C_Cmd(I2Cx, ENABLE); // Enable I2C peripheral
-
-  // Chip_I2C_SetMasterEventHandler(id, Chip_I2C_EventHandler);
-}
-
-/**
- * @brief  Configures the I2C peripheral to operate as a slave device.
- *
- * This function configures the I2C peripheral in slave mode with the given address.
- * It enables the necessary interrupts and sets the slave address. The slave device
- * can then send and receive data from the master device.
- *
- * @param  id          I2C peripheral ID (either I2C1_ID or I2C2_ID)
- * @param  slave_addr  7-bit I2C slave address (the lower 7 bits of the address)
- */
-void vI2CSlaveSetup(I2C_ID_T id, uint8_t slave_addr)
-{
-  I2C_TypeDef *I2Cx;
-  switch (id)
-  {
-  case I2C2_ID:
-    I2Cx = I2C2;
-    break;
-
-  default:
-    I2Cx = I2C1;
-  }
-  // 3. Initialize the I2C peripheral for slave mode
-  I2C_InitTypeDef I2C_InitStructure;
-  I2C_StructInit(&I2C_InitStructure); // Reset I2C_InitStructure to default values
-
-  I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;                                // Set to I2C mode
-  I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;                        // Standard duty cycle (50%)
-  I2C_InitStructure.I2C_OwnAddress1 = slave_addr << 1;                      // Set the slave address (left-shifted for 8-bit address)
-  I2C_InitStructure.I2C_Ack = I2C_Ack_Enable;                               // Enable acknowledgment
-  I2C_InitStructure.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit; // Set for 7-bit addressing
-
-  I2C_Init(I2Cx, &I2C_InitStructure); // Initialize the I2C peripheral
-
-  // 4. Enable the I2C peripheral in slave mode
-  I2C_Cmd(I2Cx, ENABLE); // Enable I2C peripheral
-
-  // 5. Enable the interrupts (optional based on application)
-  // I2C_ITConfig(I2Cx, I2C_IT_BUF | I2C_IT_EVT | I2C_IT_ERR, ENABLE);  // Enable buffer, event, and error interrupts
-
-  // 6. Optionally, enable the address match interrupt if required
-  // I2C_ITConfig(I2Cx, I2C_IT_ADDR, ENABLE);  // Enable the address interrupt to detect when the slave address is matched
-}
+// /**
+//  * @brief Master transfer data structure definitions
+//  */
+// typedef struct {
+// 	uint8_t slaveAddr;		/**< 7-bit I2C Slave address */
+// 	const uint8_t *txBuff;	/**< Pointer to array of bytes to be transmitted */
+// 	int     txSz;			/**< Number of bytes in transmit array,
+// 							   if 0 only receive transfer will be carried on */
+// 	uint8_t *rxBuff;		/**< Pointer memory where bytes received from I2C be stored */
+// 	int     rxSz;			/**< Number of bytes to received,
+// 							   if 0 only transmission we be carried on */
+// 	I2C_STATUS_T status;	/**< Status of the current I2C transfer */
+// } I2C_XFER_T;
 
 static TaskHandle_t slave_task_id;
 // I2C_XFER_T slave_cfg;
 // I2C_XFER_T slave_dummy;
 uint8_t recv_msg[i2cMAX_MSG_LENGTH];
-uint8_t recv_msg_dummy[i2cMAX_MSG_LENGTH];
+// uint8_t recv_msg_dummy[i2cMAX_MSG_LENGTH];
 uint8_t recv_bytes;
 
 uint8_t xI2CSlaveReceive(I2C_ID_T id, uint8_t *rx_buff, uint8_t buff_len, uint32_t timeout)
@@ -188,25 +90,175 @@ uint8_t xI2CSlaveReceive(I2C_ID_T id, uint8_t *rx_buff, uint8_t buff_len, uint32
   }
 }
 
-// static void I2C_Slave_Event(I2C_ID_T id, I2C_EVENT_T event)
-// {
-//   static BaseType_t xHigherPriorityTaskWoken;
-//   switch (event)
-//   {
-//   case I2C_EVENT_DONE:
-//     recv_bytes = i2cMAX_MSG_LENGTH - slave_cfg.rxSz;
-//     slave_cfg.rxSz = i2cMAX_MSG_LENGTH;
-//     slave_cfg.rxBuff = &recv_msg[0];
+void I2C1_EV_IRQHandler(void)
+{
+  static BaseType_t xHigherPriorityTaskWoken;
+  uint32_t event = I2C_GetLastEvent(I2C1); // Get the latest I2C event
 
-//     vTaskNotifyGiveFromISR(slave_task_id, &xHigherPriorityTaskWoken);
-//     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+  switch (event)
+  {
+  /* ---------- Slave Transmitter Mode (Sending Data to Master) ---------- */
+  case I2C_EVENT_SLAVE_BYTE_TRANSMITTED:
+  case I2C_EVENT_SLAVE_BYTE_TRANSMITTING:
+    // Send next byte from buffer
+    // I2C_SendData(I2C1, I2C1_Buffer_Tx[Tx_Idx++]);
+    break;
 
-//   case I2C_EVENT_SLAVE_RX:
-//     break;
-//   default:
-//     break;
-//   }
-// }
+  /* ---------- Slave Receiver Mode (Receiving Data from Master) ---------- */
+  case I2C_EVENT_SLAVE_RECEIVER_ADDRESS_MATCHED:
+    // Address match detected.
+    recv_bytes = 0;
+    break;
+
+  case I2C_EVENT_SLAVE_BYTE_RECEIVED:
+    // Store received data into buffer
+    recv_msg[recv_bytes++] = I2C_ReceiveData(I2C1);
+    if (recv_bytes == i2cMAX_MSG_LENGTH) recv_bytes = i2cMAX_MSG_LENGTH-1;
+    break;
+
+  /* ---------- STOP Condition Detected (End of Transmission) ---------- */
+  case I2C_EVENT_SLAVE_STOP_DETECTED:
+    // STOP condition detected, indicating the end of a transaction
+    I2C_Cmd(I2C1, ENABLE); // Ensure I2C remains enabled
+
+    vTaskNotifyGiveFromISR(slave_task_id, &xHigherPriorityTaskWoken);
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+    break;
+
+  default:
+    // Unhandled event (could log this for debugging)
+    break;
+  }
+}
+
+void I2C1_ER_IRQHandler(void)
+{
+    /* ---------- Acknowledge Failure (NACK) ---------- */
+    if (I2C_GetITStatus(I2C1, I2C_IT_AF))
+    {
+        I2C_ClearITPendingBit(I2C1, I2C_IT_AF); // Clear the NACK flag
+    }
+
+    /* ---------- Bus Error (START/STOP Condition Error) ---------- */
+    if (I2C_GetITStatus(I2C1, I2C_IT_BERR))
+    {
+        I2C_ClearITPendingBit(I2C1, I2C_IT_BERR);  // Clear the bus error flag
+        // Additional recovery action if necessary (e.g., reinitialize I2C)
+    }
+}
+
+void vI2CConfig(I2C_ID_T id, uint32_t speed)
+{
+  I2C_TypeDef *I2Cx;
+  GPIO_InitTypeDef GPIO_InitStruct;
+  NVIC_InitTypeDef NVIC_InitStructure;
+  I2C_InitTypeDef I2C_InitStructure;
+
+  GPIO_InitStruct.GPIO_Mode = GPIO_Mode_AF_OD;
+  GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
+
+  NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
+  NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+
+  /*!< I2C_SCL_GPIO_CLK and I2C_SDA_GPIO_CLK Periph clock enable */
+  RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
+  switch (id)
+  {
+  case I2C2_ID:
+    I2Cx = I2C2;
+    /*!< I2C Periph clock enable */
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C2, ENABLE); // Enable I2C2 clock
+    /*!< GPIO configuration */
+    /*!< Configure I2C pins: SCL(PB10) and SDA(PB11) */
+    GPIO_InitStruct.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_11;
+    GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    /* Configure and enable I2C1 event interrupt -------------------------------*/
+    NVIC_InitStructure.NVIC_IRQChannel = I2C2_EV_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 8;
+    NVIC_Init(&NVIC_InitStructure);
+
+    NVIC_InitStructure.NVIC_IRQChannel = I2C2_ER_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 9;
+    NVIC_Init(&NVIC_InitStructure);
+    break;
+  default:
+    I2Cx = I2C1;
+    /*!< I2C Periph clock enable */
+    RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE); // Enable I2C1 clock
+    /*!< GPIO configuration */
+    /*!< Configure I2C pins: SCL(PB6) and SDA(PB7) */
+    GPIO_InitStruct.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
+    GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    /* Configure and enable I2C1 event interrupt -------------------------------*/
+    NVIC_InitStructure.NVIC_IRQChannel = I2C1_EV_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 6;
+    NVIC_Init(&NVIC_InitStructure);
+
+    NVIC_InitStructure.NVIC_IRQChannel = I2C1_ER_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 7;
+    NVIC_Init(&NVIC_InitStructure);
+  }
+
+  I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;                                // Set to I2C mode
+  I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;                        // Standard duty cycle (50%)
+  I2C_InitStructure.I2C_OwnAddress1 = 0x00;                                 // No address for master mode
+  I2C_InitStructure.I2C_Ack = I2C_Ack_Enable;                               // Enable acknowledgment
+  I2C_InitStructure.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit; // 7-bit addressing mode
+  I2C_InitStructure.I2C_ClockSpeed = speed;                                 // Set I2C clock speed to 100kHz (can be adjusted)
+  I2C_Init(I2Cx, &I2C_InitStructure); // Initialize the I2C peripheral
+
+  // Enable the I2C peripheral in master mode
+  I2C_Cmd(I2Cx, ENABLE); // Enable I2C peripheral
+}
+
+/**
+ * @brief  Configures the I2C peripheral to operate as a slave device.
+ *
+ * This function configures the I2C peripheral in slave mode with the given address.
+ * It enables the necessary interrupts and sets the slave address. The slave device
+ * can then send and receive data from the master device.
+ *
+ * @param  id          I2C peripheral ID (either I2C1_ID or I2C2_ID)
+ * @param  slave_addr  7-bit I2C slave address (the lower 7 bits of the address)
+ */
+void vI2CSlaveSetup(I2C_ID_T id, uint8_t slave_addr)
+{
+  slave_addr <<= 1;
+
+  I2C_TypeDef *I2Cx;
+  switch (id)
+  {
+  case I2C2_ID:
+    I2Cx = I2C2;
+    break;
+
+  default:
+    I2Cx = I2C1;
+  }
+
+  I2C_Cmd(I2Cx, DISABLE);
+
+  // 3. Initialize the I2C peripheral for slave mode
+  I2C_InitTypeDef I2C_InitStructure;
+  I2C_StructInit(&I2C_InitStructure); // Reset I2C_InitStructure to default values
+
+  I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;                                // Set to I2C mode
+  I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;                        // Standard duty cycle (50%)
+  I2C_InitStructure.I2C_OwnAddress1 = slave_addr;                      // Set the slave address (left-shifted for 8-bit address)
+  I2C_InitStructure.I2C_Ack = I2C_Ack_Enable;                               // Enable acknowledgment
+  I2C_InitStructure.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit; // Set for 7-bit addressing
+
+  I2C_Init(I2Cx, &I2C_InitStructure); // Initialize the I2C peripheral
+
+  // 4. Enable the I2C peripheral in slave mode
+  I2C_Cmd(I2Cx, ENABLE); // Enable I2C peripheral
+
+  // 5. Enable the interrupts (optional based on application)
+  I2C_ITConfig(I2Cx, I2C_IT_BUF | I2C_IT_EVT | I2C_IT_ERR, ENABLE); // Enable buffer, event, and error interrupts
+
+}
 
 /**
  * @brief  Perform a combined I2C master write followed by read operation.
@@ -249,8 +301,8 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
   {
     if (timeout-- == 0)
     {
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+      goto stop;                      // Timeout waiting for I2C to be free
     }
   }
 
@@ -262,8 +314,8 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
   {
     if (timeout-- == 0)
     {
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+      goto stop;                      // Timeout waiting for I2C to be free
     }
   }
 
@@ -275,16 +327,16 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
   {
     if (timeout-- == 0)
     {
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+      goto stop;                      // Timeout waiting for I2C to be free
     }
   }
   // Check if NACK was received after the address was sent
   if (I2C_GetFlagStatus(I2Cx, I2C_FLAG_AF))
   {
     I2C_ClearFlag(I2Cx, I2C_FLAG_AF); // Clear the NACK flag
-    I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-    goto stop; // Timeout waiting for I2C to be free
+    I2C_GenerateSTOP(I2Cx, ENABLE);   // Generate STOP condition
+    goto stop;                        // Timeout waiting for I2C to be free
   }
 
   // Send the data from the tx_buff
@@ -298,8 +350,8 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
     {
       if (timeout-- == 0)
       {
-        I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-        goto stop; // Timeout waiting for I2C to be free
+        I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+        goto stop;                      // Timeout waiting for I2C to be free
       }
     }
   }
@@ -313,8 +365,8 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
   {
     if (timeout-- == 0)
     {
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+      goto stop;                      // Timeout waiting for I2C to be free
     }
   }
 
@@ -326,15 +378,15 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
   {
     if (timeout-- == 0)
     {
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+      goto stop;                      // Timeout waiting for I2C to be free
     }
   }
   // Check if NACK was received after the address was sent
   if (I2C_GetFlagStatus(I2Cx, I2C_FLAG_AF))
   {
     I2C_ClearFlag(I2Cx, I2C_FLAG_AF); // Clear the NACK flag
-    goto stop; // Timeout waiting for I2C to be free
+    goto stop;                        // Timeout waiting for I2C to be free
   }
 
   // Read data byte-by-byte
@@ -354,8 +406,8 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
     {
       if (timeout-- == 0)
       {
-        I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-        goto stop; // Timeout waiting for I2C to be free
+        I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+        goto stop;                      // Timeout waiting for I2C to be free
       }
     }
 
@@ -363,16 +415,17 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
     rx_buff[i] = I2C_ReceiveData(I2Cx);
   }
 
-  stop:
-    // Wait for the STOP condition to be generated
-    timeout = I2C_TIMEOUT;
-    while (I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF))
-    {
-      if (timeout-- == 0) return i;  // Timeout error during STOP condition, return the number of bytes received
-    }
+stop:
+  // Wait for the STOP condition to be generated
+  timeout = I2C_TIMEOUT;
+  while (I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF))
+  {
+    if (timeout-- == 0)
+      return i; // Timeout error during STOP condition, return the number of bytes received
+  }
 
-    // Return the number of bytes successfully received
-    return i;
+  // Return the number of bytes successfully received
+  return i;
 }
 
 /**
@@ -393,10 +446,10 @@ uint8_t xI2CMasterWriteRead(I2C_ID_T id, uint8_t addr, const uint8_t *tx_buff, u
  */
 uint8_t xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8_t buff_len)
 {
-  uint32_t timeout = I2C_TIMEOUT;  // Set timeout duration
+  uint32_t timeout = I2C_TIMEOUT; // Set timeout duration
   uint8_t i = 0;
   I2C_TypeDef *I2Cx;
-  slave_addr = slave_addr << 1;  // Shift the address for I2C 8-bit address format
+  slave_addr = slave_addr << 1; // Shift the address for I2C 8-bit address format
 
   // Select I2C peripheral based on provided ID
   switch (id)
@@ -412,7 +465,8 @@ uint8_t xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8
   // Wait until the I2C peripheral is not busy
   while (I2C_GetFlagStatus(I2Cx, I2C_FLAG_BUSY))
   {
-    if (timeout-- == 0) goto stop; // Timeout waiting for I2C to be free
+    if (timeout-- == 0)
+      goto stop; // Timeout waiting for I2C to be free
   }
 
   // Generate the START condition
@@ -422,7 +476,8 @@ uint8_t xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8
   timeout = I2C_TIMEOUT;
   while (!I2C_CheckEvent(I2Cx, I2C_EVENT_MASTER_MODE_SELECT))
   {
-    if (timeout-- == 0) goto stop; // Timeout on START condition
+    if (timeout-- == 0)
+      goto stop; // Timeout on START condition
   }
 
   // Send the slave address with the write mode (LSB = 0 for write)
@@ -432,13 +487,14 @@ uint8_t xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8
   timeout = I2C_TIMEOUT;
   while (!I2C_CheckEvent(I2Cx, I2C_EVENT_MASTER_TRANSMITTER_MODE_SELECTED))
   {
-    if (timeout-- == 0) goto stop; // Timeout on address acknowledge
+    if (timeout-- == 0)
+      goto stop; // Timeout on address acknowledge
   }
   // Check if NACK was received after the address was sent
   if (I2C_GetFlagStatus(I2Cx, I2C_FLAG_AF))
   {
     I2C_ClearFlag(I2Cx, I2C_FLAG_AF); // Clear the NACK flag
-    goto stop; // Timeout waiting for I2C to be free
+    goto stop;                        // Timeout waiting for I2C to be free
   }
 
   // Send each byte of the data buffer
@@ -450,13 +506,14 @@ uint8_t xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8
     timeout = I2C_TIMEOUT;
     while (!I2C_CheckEvent(I2Cx, I2C_EVENT_MASTER_BYTE_TRANSMITTED))
     {
-      if (timeout-- == 0) goto stop; // Timeout on byte transmission
+      if (timeout-- == 0)
+        goto stop; // Timeout on byte transmission
     }
     // Check for NACK after transmitting each byte
     if (I2C_GetFlagStatus(I2Cx, I2C_FLAG_AF))
     {
-      I2C_ClearFlag(I2Cx, I2C_FLAG_AF);  // Clear NACK flag
-      goto stop;  // Stop if NACK is received
+      I2C_ClearFlag(I2Cx, I2C_FLAG_AF); // Clear NACK flag
+      goto stop;                        // Stop if NACK is received
     }
   }
 
@@ -468,7 +525,8 @@ stop:
   timeout = I2C_TIMEOUT;
   while (I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF))
   {
-    if (timeout-- == 0) return i;  // Timeout during STOP condition, return the number of bytes sent
+    if (timeout-- == 0)
+      return i; // Timeout during STOP condition, return the number of bytes sent
   }
 
   // Return the number of bytes successfully transmitted
@@ -493,10 +551,10 @@ stop:
  */
 uint8_t xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_t buff_len)
 {
-  uint32_t timeout = I2C_TIMEOUT;  // Set timeout duration
+  uint32_t timeout = I2C_TIMEOUT; // Set timeout duration
   uint8_t i = 0;
   I2C_TypeDef *I2Cx;
-  slave_addr = slave_addr << 1;  // Shift the address for I2C 8-bit address format
+  slave_addr = slave_addr << 1; // Shift the address for I2C 8-bit address format
 
   // Select I2C peripheral based on provided ID
   switch (id)
@@ -514,8 +572,8 @@ uint8_t xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_
   {
     if (timeout-- == 0)
     {
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+      goto stop;                      // Timeout waiting for I2C to be free
     }
   }
 
@@ -528,8 +586,8 @@ uint8_t xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_
   {
     if (timeout-- == 0)
     {
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+      goto stop;                      // Timeout waiting for I2C to be free
     }
   }
 
@@ -542,15 +600,15 @@ uint8_t xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_
   {
     if (timeout-- == 0)
     {
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+      goto stop;                      // Timeout waiting for I2C to be free
     }
     // Check if NACK was received after the address was sent
     if (I2C_GetFlagStatus(I2Cx, I2C_FLAG_AF))
     {
       I2C_ClearFlag(I2Cx, I2C_FLAG_AF); // Clear the NACK flag
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-      goto stop; // Timeout waiting for I2C to be free
+      I2C_GenerateSTOP(I2Cx, ENABLE);   // Generate STOP condition
+      goto stop;                        // Timeout waiting for I2C to be free
     }
   }
 
@@ -561,8 +619,8 @@ uint8_t xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_
     // If it's the last byte, disable ACK and generate STOP condition after receiving
     if (i == (buff_len - 1))
     {
-      I2C_AcknowledgeConfig(I2Cx, DISABLE);  // Disable Acknowledge after receiving last byte
-      I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
+      I2C_AcknowledgeConfig(I2Cx, DISABLE); // Disable Acknowledge after receiving last byte
+      I2C_GenerateSTOP(I2Cx, ENABLE);       // Generate STOP condition
     }
 
     // Wait for the data byte to be received
@@ -571,8 +629,8 @@ uint8_t xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_
     {
       if (timeout-- == 0)
       {
-        I2C_GenerateSTOP(I2Cx, ENABLE);        // Generate STOP condition
-        goto stop; // Timeout waiting for I2C to be free
+        I2C_GenerateSTOP(I2Cx, ENABLE); // Generate STOP condition
+        goto stop;                      // Timeout waiting for I2C to be free
       }
     }
 
@@ -580,14 +638,15 @@ uint8_t xI2CMasterRead(I2C_ID_T id, uint8_t slave_addr, uint8_t *rx_buff, uint8_
     rx_buff[i] = I2C_ReceiveData(I2Cx);
   }
 
-  stop:
-    // Wait for the STOP condition to be generated
-    timeout = I2C_TIMEOUT;
-    while (I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF))
-    {
-      if (timeout-- == 0) return i;  // Timeout error during STOP condition, return the number of bytes received
-    }
+stop:
+  // Wait for the STOP condition to be generated
+  timeout = I2C_TIMEOUT;
+  while (I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF))
+  {
+    if (timeout-- == 0)
+      return i; // Timeout error during STOP condition, return the number of bytes received
+  }
 
-    // Return the number of bytes successfully received
-    return i;
+  // Return the number of bytes successfully received
+  return i;
 }
