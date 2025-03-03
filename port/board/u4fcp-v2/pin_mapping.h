@@ -89,9 +89,12 @@ void gpio_init(void);
 #define GPIO_RTM_RES PIN_DEF(PORT0, 2, 0, GPIO_DIR_INPUT)
 #define GPIO_RTM_INT_B PIN_DEF(PORT0, 3, 0, GPIO_DIR_INPUT)
 
+// Test Point
+#define GPIO_TP PIN_DEF(PORT1, 1, 0, GPIO_DIR_INPUT)
+
 /* Pin initialization (config) list */
 #define PIN_CFG_LIST        \
-  GPIO_AMC_MODE,            \
+      GPIO_AMC_MODE,        \
       GPIO_GA0,             \
       GPIO_GA1,             \
       GPIO_GA2,             \
@@ -115,7 +118,8 @@ void gpio_init(void);
       GPIO_FMC1_CLK_DIR,    \
       GPIO_RTM_PS_B,        \
       GPIO_RTM_RES,         \
-      GPIO_RTM_INT_B
+      GPIO_RTM_INT_B,       \
+      GPIO_TP
 
 typedef struct external_gpio
 {

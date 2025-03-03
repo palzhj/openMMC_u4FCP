@@ -31,12 +31,12 @@
 #include "port.h"
 #include "stm32_pincfg.h"
 
-#define GPIO_LEVEL_LOW  0
+#define GPIO_LEVEL_LOW 0
 #define GPIO_LEVEL_HIGH 1
 
-#define GPIO_DIR_INPUT  0
+#define GPIO_DIR_INPUT 0
 #define GPIO_DIR_OUTPUT 1
-#define NON_GPIO        0xFF
+#define NON_GPIO 0xFF
 
 /**
  * @brief       Reads a GPIO pin state
@@ -44,13 +44,13 @@
  * @param       pin     : GPIO pin to get state for
  * @return      true (1) if the GPIO is high, false (0) if low
  */
-#define gpio_read_pin( port, pin ) GPIO_ReadInputDataBit( port, 1<<(pin) )
+#define gpio_read_pin(port, pin) GPIO_ReadInputDataBit(port, 1 << (pin))
 /**
  * @brief       Reads a GPIO port state
  * @param       port    : GPIO Port number
  * @return      Current state of all pins in the specified port
  */
-#define gpio_read_port( port ) GPIO_ReadInputData( port )
+#define gpio_read_port(port) GPIO_ReadInputData(port)
 
 /**
  * @brief       Set an individual GPIO output pin to the high state
@@ -58,7 +58,7 @@
  * @param       pin     : pin number
  * @note        This commands only applies for pins selected as outputs. Writing '0' shouldn't affect the pin state
  */
-#define gpio_set_pin_high( port, pin ) GPIO_SetBits( port, 1<<(pin) )
+#define gpio_set_pin_high(port, pin) GPIO_SetBits(port, 1 << (pin))
 
 /**
  * @brief       Set selected GPIO output pins to the high state
@@ -66,14 +66,14 @@
  * @param       mask    : Selected pins to set high
  * @note        This commands only applies for pins selected as outputs. Writing '0' shouldn't affect the pin state
  */
-#define gpio_set_port_high( port, mask ) GPIO_SetBits( port, mask )
+#define gpio_set_port_high(port, mask) GPIO_SetBits(port, mask)
 /**
  * @brief       Set an individual GPIO output pin to the high state
  * @param       port    : GPIO Port number where pin is located
  * @param       pin     : pin number
  * @note        This commands only applies for pins selected as outputs. Writing '0' shouldn't affect the pin state
  */
-#define gpio_set_pin_low( port, pin ) GPIO_ResetBits( port, 1<<(pin) )
+#define gpio_set_pin_low(port, pin) GPIO_ResetBits(port, 1 << (pin))
 
 /**
  * @brief       Set selected GPIO output pins to the high state
@@ -81,7 +81,7 @@
  * @param       mask    : Selected pins to set high
  * @note        This commands only applies for pins selected as outputs. Writing '0' shouldn't affect the pin state
  */
-#define gpio_set_port_low( port, mask ) GPIO_ResetBits( port, mask )
+#define gpio_set_port_low(port, mask) GPIO_ResetBits(port, mask)
 
 /**
  * @brief       Toggle an individual GPIO output pin to the opposite state
@@ -89,7 +89,7 @@
  * @param       pin     : pin number
  * @note        This commands only applies for pins selected as outputs. Writing '0' shouldn't affect the pin state
  */
-#define gpio_pin_toggle( port, pin ) (((GPIO_TypeDef *)port)->ODR ^= 1<<(pin))
+#define gpio_pin_toggle(port, pin) (((GPIO_TypeDef *)port)->ODR ^= 1 << (pin))
 
 /**
  * @brief       Set a GPIO pin to the specified state
@@ -97,7 +97,7 @@
  * @param       pin     : pin number
  * @param       state   : true (1) for high, false (0) for low
  */
-#define gpio_set_pin_state( port, pin, state ) GPIO_WriteBit( port, 1<<(pin), state )
+#define gpio_set_pin_state(port, pin, state) GPIO_WriteBit(port, 1 << (pin), state)
 
 /**
  * @brief       Set a GPIO pin direction

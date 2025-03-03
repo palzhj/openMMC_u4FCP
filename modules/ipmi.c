@@ -69,7 +69,7 @@ void IPMITask( void * pvParameters )
             configASSERT(pdFALSE);
             continue;
         }
-#if 0
+#if 1
         printf(" IPMI Message Received: \n ");
         printf(" \tNETFn: 0x%X\tCMD: 0x%X\t Data: ", req_received.netfn, req_received.cmd);
         for (int i=0; i < req_received.data_len; i++) {

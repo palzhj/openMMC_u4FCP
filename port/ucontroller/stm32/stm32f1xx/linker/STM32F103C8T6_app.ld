@@ -82,6 +82,12 @@ SECTIONS
     _etext = .;        /* define a global symbols at end of code */
   } >FLASH
 
+  .ipmi_handlers : ALIGN(32)
+  {
+      _ipmi_handlers = .;
+      KEEP(*(.ipmi_handlers))
+      _eipmi_handlers = .;
+  } > FLASH
 
    .ARM.extab   : { *(.ARM.extab* .gnu.linkonce.armextab.*) } >FLASH
     .ARM : {
@@ -121,10 +127,10 @@ SECTIONS
   {
     . = ALIGN(4);
     _sdata = .;        /* create a global symbol at data start */
+    *(.ramfunc)        /* .RamFunc sections */
+    *(.ramfunc*)       /* .RamFunc* sections */
     *(.data)           /* .data sections */
     *(.data*)          /* .data* sections */
-    *(.RamFunc)        /* .RamFunc sections */
-    *(.RamFunc*)       /* .RamFunc* sections */
 
     . = ALIGN(4);
     _edata = .;        /* define a global symbol at data end */

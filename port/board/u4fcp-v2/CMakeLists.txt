@@ -9,16 +9,15 @@ endif()
 
 #List all modules used by this board
 set(TARGET_MODULES
-  # "HOTSWAP_SENSOR"
   "BOARD_CONFIG"
   "UART_DEBUG"
-  # "SDR"
-  # "PAYLOAD"
-  # "DAC_AD84XX"
   "FRU"
-  # "CLOCK_CONFIG"
   "EEPROM_24XX512"
-  # "EEPROM_AT24MAC"
+  "SDR"
+  "HOTSWAP_SENSOR"
+  "PAYLOAD"
+  # "DAC_AD84XX"
+  # "CLOCK_CONFIG"
   # "LM75"
   # "MAX6642"
   # "INA3221_VOLTAGE"
@@ -38,8 +37,8 @@ endif()
 set(BOARD_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 #Include the modules sources
-##Sensors SDR list
-# set( PROJ_SRCS ${PROJ_SRCS} ${BOARD_PATH}/sdr_list.c )
+#Sensors SDR list
+set( PROJ_SRCS ${PROJ_SRCS} ${BOARD_PATH}/sdr_list.c )
 set( PROJ_SRCS ${PROJ_SRCS} ${BOARD_PATH}/i2c_mapping.c )
 set( PROJ_SRCS ${PROJ_SRCS} ${BOARD_PATH}/pin_mapping.c )
 

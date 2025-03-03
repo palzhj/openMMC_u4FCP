@@ -65,7 +65,7 @@
 /**********************************************
  * PICMG: Module current record
  **********************************************/
-#define AMC_MODULE_CURRENT_RECORD            current_in_ma(6500)
+#define AMC_MODULE_CURRENT_RECORD            current_in_ma(4000)
 
 /*********************************************
  * RTM Compatibility Record

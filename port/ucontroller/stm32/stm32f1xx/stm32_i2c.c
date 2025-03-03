@@ -238,22 +238,13 @@ void vI2CSlaveSetup(I2C_ID_T id, uint8_t slave_addr)
     I2Cx = I2C1;
   }
 
-  I2C_Cmd(I2Cx, DISABLE);
+  // I2C_Cmd(I2Cx, DISABLE);
 
   // 3. Initialize the I2C peripheral for slave mode
-  I2C_InitTypeDef I2C_InitStructure;
-  I2C_StructInit(&I2C_InitStructure); // Reset I2C_InitStructure to default values
-
-  I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;                                // Set to I2C mode
-  I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;                        // Standard duty cycle (50%)
-  I2C_InitStructure.I2C_OwnAddress1 = slave_addr;                      // Set the slave address (left-shifted for 8-bit address)
-  I2C_InitStructure.I2C_Ack = I2C_Ack_Enable;                               // Enable acknowledgment
-  I2C_InitStructure.I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit; // Set for 7-bit addressing
-
-  I2C_Init(I2Cx, &I2C_InitStructure); // Initialize the I2C peripheral
+  I2Cx->OAR1 = (I2C_AcknowledgedAddress_7bit | slave_addr);
 
   // 4. Enable the I2C peripheral in slave mode
-  I2C_Cmd(I2Cx, ENABLE); // Enable I2C peripheral
+  // I2C_Cmd(I2Cx, ENABLE); // Enable I2C peripheral
 
   // 5. Enable the interrupts (optional based on application)
   I2C_ITConfig(I2Cx, I2C_IT_BUF | I2C_IT_EVT | I2C_IT_ERR, ENABLE); // Enable buffer, event, and error interrupts
@@ -450,6 +441,7 @@ uint8_t xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8
   uint8_t i = 0;
   I2C_TypeDef *I2Cx;
   slave_addr = slave_addr << 1; // Shift the address for I2C 8-bit address format
+  uint16_t enablestatus;
 
   // Select I2C peripheral based on provided ID
   switch (id)
@@ -461,6 +453,12 @@ uint8_t xI2CMasterWrite(I2C_ID_T id, uint8_t slave_addr, uint8_t *tx_buff, uint8
   default:
     I2Cx = I2C1;
   }
+
+  #define ITEN_Mask ((uint16_t)0x0700)
+  /* Check if the interrupt source is enabled or not */
+  enablestatus = ITEN_Mask & (I2Cx->CR2);
+  // Disable interrupt
+  if(enablestatus) I2C_ITConfig(I2Cx, I2C_IT_BUF | I2C_IT_EVT | I2C_IT_ERR, DISABLE);
 
   // Wait until the I2C peripheral is not busy
   while (I2C_GetFlagStatus(I2Cx, I2C_FLAG_BUSY))
@@ -525,9 +523,10 @@ stop:
   timeout = I2C_TIMEOUT;
   while (I2C_GetFlagStatus(I2Cx, I2C_FLAG_STOPF))
   {
-    if (timeout-- == 0)
-      return i; // Timeout during STOP condition, return the number of bytes sent
+    if (timeout-- == 0) break;
   }
+
+  if(enablestatus) I2C_ITConfig(I2Cx, I2C_IT_BUF | I2C_IT_EVT | I2C_IT_ERR, ENABLE);
 
   // Return the number of bytes successfully transmitted
   return i;
