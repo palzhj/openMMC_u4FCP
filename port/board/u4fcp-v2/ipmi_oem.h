@@ -24,15 +24,15 @@
 #define IPMI_OEM_H_
 
 /**
- * @file afc-v4/ipmi_oem.h
- * @brief Custom IPMI commands for AFC
+ * @file u4FCP-v2/ipmi_oem.h
+ * @brief Custom IPMI commands for uFC
  *
- * @ingroup AFC_V4_0_IPMI_OEM
+ * @ingroup u4FCP_V2_0_IPMI_OEM
  */
 
 /**
- * @defgroup AFC_V4_0_IPMI_OEM AFCv4.0 IPMI OEM Commands
- * @ingroup AFC_V4_0
+ * @defgroup u4FCP_V2_0_IPMI_OEM AFCv4.0 IPMI OEM Commands
+ * @ingroup u4FCP_V2_0
  * @{
  */
 

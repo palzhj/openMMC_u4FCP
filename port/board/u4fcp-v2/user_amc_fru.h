@@ -27,32 +27,32 @@
  * Common defines
  *********************************************/
 #define AMC_LANG_CODE               0
-#define AMC_FRU_FILE_ID             "UFCFRU"       //Allows knowing the source of the FRU present in the memory
+#define AMC_FRU_FILE_ID             "none"       //Allows knowing the source of the FRU present in the memory
 
 /*********************************************
  * Board information area
  *********************************************/
-#define AMC_BOARD_MANUFACTURING_TIME 13076640               /* Amount of minutes since 0:00 1/1/96 */
+#define AMC_BOARD_MANUFACTURING_TIME 15254640               /* Amount of minutes since 0:00 1/1/96 */
 #define AMC_BOARD_MANUFACTURER      "IHEP"
-#define AMC_BOARD_NAME              "AMC-FMC-Carrier"
-#define AMC_BOARD_SN                "CNxxxxx"
-#define AMC_BOARD_PN                "UFC"
+#define AMC_BOARD_NAME              "AMC FMC Carrier"
+#define AMC_BOARD_SN                "0"
+#define AMC_BOARD_PN                "0"
 
 /*********************************************
  * Product information area
  *********************************************/
 #define AMC_PRODUCT_MANUFACTURER    "IHEP"
-#define AMC_PRODUCT_NAME            "uFC"
-#define AMC_PRODUCT_PN              "u4FCP:2.0"
+#define AMC_PRODUCT_NAME            "u4FCP"
+#define AMC_PRODUCT_PN              "AMC"
 #define AMC_PRODUCT_VERSION         "2.0"
-#define AMC_PRODUCT_SN              "CNxxxxx"
+#define AMC_PRODUCT_SN              "UB001"
 #define AMC_PRODUCT_ASSET_TAG       "Generic FRU"
 
 /*********************************************
  * AMC: Point to point connectivity record
  *********************************************/
 #define AMC_POINT_TO_POINT_RECORD_LIST                                  \
-    GENERIC_POINT_TO_POINT_RECORD(0, PORT(4), PORT(5), PORT(6), PORT(7), PCIE, GEN1_NO_SSC, MATCHES_01)
+    GENERIC_POINT_TO_POINT_RECORD(0, PORT(4), PORT(5), PORT(6), PORT(7), ETHERNET, BASE_10G_BX4, MATCHES_01)
 
 /*********************************************
  * AMC: Point to point clock record
@@ -61,11 +61,11 @@
    DIRECT_CLOCK_CONNECTION(CLOCK_ID, ACTIVATION, PLL_USE, SOURCE/RECEIVER, CLOCK_FAMILY, ACCURACY, FREQUENCY, MIN FREQUENCY, MAX FREQUENCY) */
 #define AMC_CLOCK_CONFIGURATION_LIST                                    \
     DIRECT_CLOCK_CONNECTION(FCLKA, CIPMC, NO_PLL, RECEIVER, PCI_RESERVED, 0, MHz(100), MHz(99), MHz(101)) \
-    DIRECT_CLOCK_CONNECTION(TCLKA, APP, NO_PLL, RECEIVER, UNSPEC_FAMILY, 0, KHz(62500), KHz(62450), KHz(62550))
+    DIRECT_CLOCK_CONNECTION(TCLKA, APP, NO_PLL, RECEIVER, UNSPEC_FAMILY, 0, KHz(125000), KHz(124900), KHz(125100))
 /**********************************************
  * PICMG: Module current record
  **********************************************/
-#define AMC_MODULE_CURRENT_RECORD            current_in_ma(4000)
+#define AMC_MODULE_CURRENT_RECORD            current_in_ma(6200)
 
 /*********************************************
  * RTM Compatibility Record

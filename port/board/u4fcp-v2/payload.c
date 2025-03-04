@@ -4,6 +4,7 @@
  *   Copyright (C) 2015  Piotr Miedzik  <P.Miedzik@gsi.de>
  *   Copyright (C) 2015-2016  Henrique Silva <henrique.silva@lnls.br>
  *   Copyright (C) 2021  Krzysztof Macias <krzysztof.macias@creotech.pl>
+ *   Copyright (C) 2025  Jie Zhang <zhj@ihep.ac.cn>
  *
  *   This program is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -39,12 +40,10 @@
 #include "board_led.h"
 #include "board_config.h"
 #include "eeprom_24xx512.h"
-// #include "mmc_error.h"
-// #include "adc_17xx_40xx.h"
-// #include "mcp23016.h"
+#include "adn4604.h"
+#include "clock_config.h"
 // #include "ad84xx.h"
-// #include "idt_8v54816.h"
-// #include "clock_config.h"
+// #include "mcp23016.h"
 
 /* payload states
  *   0 - No power
@@ -68,22 +67,25 @@
  */
 
 /**
- * @brief Set AFC's DCDC Converters state
+ * @brief Set uFC's DCDC Converters state
  *
  * @param on DCDCs state
  *
  */
-
 uint8_t setDC_DC_ConvertersON(bool on)
 {
   if (on)
   {
+#ifdef DEBUG
     printf("Enable Power\n");
+#endif
     gpio_set_pin_high(PIN_PORT(GPIO_PMBUS_CTRL), PIN_NUMBER(GPIO_PMBUS_CTRL));
   }
   else
   {
+#ifdef DEBUG
     printf("Disable Power\n");
+#endif
     gpio_set_pin_low(PIN_PORT(GPIO_PMBUS_CTRL), PIN_NUMBER(GPIO_PMBUS_CTRL));
   }
   return 1;
@@ -94,7 +96,9 @@ static void fpga_soft_reset(void)
   gpio_set_pin_low(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B));
   asm("NOP");
   gpio_set_pin_high(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B));
-
+#ifdef DEBUG
+  printf("Reset FPGA\n");
+#endif
   /* Blink RED LED to indicate to the user that the Reset was performed */
   LEDUpdate(FRU_AMC, LED1, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0);
 }
@@ -143,6 +147,23 @@ uint8_t payload_check_pgood()
   // if (dataADC > PAYLOAD_THRESHOLD){
   //     return 1;
   // }
+  // return 0;
+
+  // sensor_t * p_sensor;
+  // SDR_type_01h_t *sdr;
+
+  // extern const SDR_type_01h_t SDR_FMC1_12V;
+
+  // /* Iterate through the SDR Table to find all the LM75 entries */
+  // for ( p_sensor = sdr_head; (p_sensor != NULL) || (p_sensor->task_handle == NULL); p_sensor = p_sensor->next) {
+  //     if (p_sensor->sdr == &SDR_FMC1_12V) {
+  //         sdr = ( SDR_type_01h_t * ) p_sensor->sdr;
+  //         *pgood_flag = ( ( p_sensor->readout_value >= (sdr->lower_critical_thr ) ) &&
+  //                         ( p_sensor->readout_value <= (sdr->upper_critical_thr ) ) );
+  //         return 1;
+  //     }
+  // }
+
   // return 0;
 
   return 1;
@@ -195,13 +216,13 @@ void payload_init(void)
     standalone_mode = true;
   }
 
-  // if (!standalone_mode)
-  // {
-  //   /* Wait until ENABLE# signal is asserted ( ENABLE == 0) */
-  //   while (gpio_read_pin(PIN_PORT(GPIO_MMC_ENABLE), PIN_NUMBER(GPIO_MMC_ENABLE)) == 1)
-  //   {
-  //   };
-  // }
+  if (!standalone_mode)
+  {
+    /* Wait until ENABLE# signal is asserted ( ENABLE == 0) */
+    while (gpio_read_pin(PIN_PORT(GPIO_MMC_ENABLE), PIN_NUMBER(GPIO_MMC_ENABLE)) == 1)
+    {
+    };
+  }
 
   /* Recover clock switch configuration saved in EEPROM */
 #ifdef MODULE_CLOCK_CONFIG
@@ -222,65 +243,15 @@ void payload_init(void)
   Chip_ADC_EnableChannel(LPC_ADC, ADC_CH1, ENABLE);
 #endif
 
-#ifdef MODULE_MCP23016
-  if (!gpio_read_pin(PIN_PORT(GPIO_PGOOD_P1V0), PIN_NUMBER(GPIO_PGOOD_P1V0)))
-  {
-
-    /*
-     * Configure all GPIOs as outputs
-     */
-    err = mcp23016_set_port_dir(0, 0);
-
-    if (err != MMC_OK)
-    {
-      PRINT_ERR_LINE(err);
-    }
-
-    err = mcp23016_set_port_dir(1, 0);
-
-    if (err != MMC_OK)
-    {
-      PRINT_ERR_LINE(err);
-    }
-
 #ifdef MODULE_DAC_AD84XX
-    /* Configure the PVADJ DAC */
-    err = mcp23016_write_pin(ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].port_num, ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].pin_num, false);
-    if (err != MMC_OK)
-    {
-      PRINT_ERR_LINE(err);
-    }
+  /* Configure the PVADJ DAC */
+  dac_ad84xx_init();
 
-    dac_ad84xx_init();
-
-    err = mcp23016_write_pin(ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].port_num, ext_gpios[EXT_GPIO_DAC_VADJ_RSTn].pin_num, true);
-    if (err != MMC_OK)
-    {
-      PRINT_ERR_LINE(err);
-    }
-
-    set_vadj_volt(0, 2.5);
-    set_vadj_volt(1, 2.5);
+  set_vadj_volt(0, 2.5);
+  set_vadj_volt(1, 2.5);
 #endif
 
-    gpio_set_pin_state(PIN_PORT(GPIO_FPGA_RESET), PIN_NUMBER(GPIO_FPGA_RESET), GPIO_LEVEL_LOW);
-    gpio_set_pin_state(PIN_PORT(GPIO_FPGA_INITB), PIN_NUMBER(GPIO_FPGA_INITB), GPIO_LEVEL_LOW);
-
-    err = mcp23016_write_pin(ext_gpios[EXT_GPIO_PROGRAM_B].port_num, ext_gpios[EXT_GPIO_PROGRAM_B].pin_num, false);
-
-    if (err != MMC_OK)
-    {
-      PRINT_ERR_LINE(err);
-    }
-
-    err = mcp23016_write_pin(ext_gpios[EXT_GPIO_FPGA_I2C_RESET].port_num, ext_gpios[EXT_GPIO_FPGA_I2C_RESET].pin_num, true);
-
-    if (err != MMC_OK)
-    {
-      PRINT_ERR_LINE(err);
-    }
-  }
-#endif
+  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B), GPIO_LEVEL_HIGH);
 }
 
 void vTaskPayload(void *pvParameters)
@@ -304,6 +275,8 @@ void vTaskPayload(void *pvParameters)
   // mmc_err err;
 
   xLastWakeTime = xTaskGetTickCount();
+
+  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROG_B), PIN_NUMBER(GPIO_FPGA_PROG_B), GPIO_LEVEL_HIGH);
 
   for (;;)
   {
@@ -340,12 +313,17 @@ void vTaskPayload(void *pvParameters)
      * When receive a PAYLOAD_MESSAGE_CLOCK_CONFIG message, configure the clock switch
      * and write the new configuration in EEPROM
      */
-    if( current_evt & PAYLOAD_MESSAGE_CLOCK_CONFIG ){
-        // eeprom_24xx512_write(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
-        // if (PAYLOAD_FPGA_ON) {
-        //     clock_switch_write_reg(clock_config);
-        // }
-        xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_CLOCK_CONFIG);
+    if (current_evt & PAYLOAD_MESSAGE_CLOCK_CONFIG)
+    {
+#ifdef MODULE_ADN4604
+      eeprom_24xx512_write(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
+      if (PAYLOAD_FPGA_ON)
+      {
+        adn4604_reset();
+        clock_configuration(clock_config);
+      }
+#endif
+      xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_CLOCK_CONFIG);
     }
     if (current_evt & PAYLOAD_MESSAGE_COLD_RST)
     {
@@ -374,11 +352,7 @@ void vTaskPayload(void *pvParameters)
 
     case PAYLOAD_POWER_GOOD_WAIT:
       /* Turn DDC converters on */
-      if (DCDC_good == 0)
-      {
-        setDC_DC_ConvertersON(true);
-        DCDC_good = 1;
-      }
+      setDC_DC_ConvertersON(true);
 
       /* Clear hotswap sensor backend power failure bits */
       hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_BACKEND_PWR_SHUTDOWN_MASK);
@@ -391,10 +365,6 @@ void vTaskPayload(void *pvParameters)
       else if (DCDC_good == 1)
       {
         new_state = PAYLOAD_STATE_FPGA_SETUP;
-
-        gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROG_B), PIN_NUMBER(GPIO_FPGA_PROG_B), GPIO_LEVEL_HIGH);
-        // gpio_set_pin_state(PIN_PORT(GPIO_FPGA_INITB), PIN_NUMBER(GPIO_FPGA_INITB), GPIO_LEVEL_HIGH);
-        gpio_set_pin_state(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B), GPIO_LEVEL_HIGH);
       }
       break;
 
@@ -402,13 +372,16 @@ void vTaskPayload(void *pvParameters)
       // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_HIGH);
       // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_HIGH);
 
-      /*
-       * Only change the state if the clock switch configuration
-       * succeeds
-       */
-      // if (clock_switch_write_reg(clock_config)) {
-          new_state = PAYLOAD_FPGA_ON;
-      // }
+#ifdef MODULE_ADN4604
+      /* Configure clock switch */
+      if (clock_configuration(clock_config) == MMC_OK)
+      {
+        // Only change the state if the clock switch configuration succeeds
+        new_state = PAYLOAD_FPGA_ON;
+      }
+#else
+      new_state = PAYLOAD_FPGA_ON;
+#endif
       break;
 
     case PAYLOAD_FPGA_ON:
@@ -419,10 +392,6 @@ void vTaskPayload(void *pvParameters)
       break;
 
     case PAYLOAD_SWITCHING_OFF:
-      gpio_set_pin_state(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B), GPIO_LEVEL_LOW);
-      // gpio_set_pin_state(PIN_PORT(GPIO_FPGA_INITB), PIN_NUMBER(GPIO_FPGA_INITB), GPIO_LEVEL_LOW);
-      gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROG_B), PIN_NUMBER(GPIO_FPGA_PROG_B), GPIO_LEVEL_LOW);
-
       // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_LOW);
       // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_LOW);
 
@@ -468,45 +437,204 @@ void vTaskPayload(void *pvParameters)
 #include "flash_spi.h"
 #include "string.h"
 
+uint8_t *hpm_page = NULL;
+uint8_t hpm_pg_index;
+uint32_t hpm_page_addr;
+
 uint8_t payload_hpm_prepare_comp(void)
 {
-  return IPMI_CC_ILLEGAL_COMMAND_DISABLED;
+  /* Initialize variables */
+  if (hpm_page != NULL)
+  {
+    vPortFree(hpm_page);
+  }
+
+  hpm_page = (uint8_t *)pvPortMalloc(PAYLOAD_HPM_PAGE_SIZE);
+
+  if (hpm_page == NULL)
+  {
+    /* Malloc failed */
+    return IPMI_CC_OUT_OF_SPACE;
+  }
+
+  memset(hpm_page, 0xFF, PAYLOAD_HPM_PAGE_SIZE);
+
+  hpm_pg_index = 0;
+  hpm_page_addr = 0;
+
+  /* Initialize flash */
+  ssp_init(FLASH_SPI, FLASH_SPI_BITRATE, FLASH_SPI_FRAME_SIZE, SSP_MASTER, SSP_INTERRUPT);
+
+  /* Prevent the FPGA from accessing the Flash to configure itself now */
+  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROGRAM_B), PIN_NUMBER(GPIO_FPGA_PROGRAM_B), GPIO_LEVEL_HIGH);
+  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROGRAM_B), PIN_NUMBER(GPIO_FPGA_PROGRAM_B), GPIO_LEVEL_LOW);
+  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROGRAM_B), PIN_NUMBER(GPIO_FPGA_PROGRAM_B), GPIO_LEVEL_HIGH);
+  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROGRAM_B), PIN_NUMBER(GPIO_FPGA_PROGRAM_B), GPIO_LEVEL_LOW);
+
+  /* Erase FLASH */
+  flash_bulk_erase();
+
+  return IPMI_CC_COMMAND_IN_PROGRESS;
 }
 
 uint8_t payload_hpm_upload_block(uint8_t *block, uint16_t size)
 {
-  return IPMI_CC_ILLEGAL_COMMAND_DISABLED;
+  /* TODO: Check DONE pin before accessing the SPI bus, since the FPGA may be reading it in order to boot */
+  uint8_t remaining_bytes_start;
+
+  if (PAYLOAD_HPM_PAGE_SIZE - hpm_pg_index > size)
+  {
+    /* Our page is not full yet, just append the new data */
+    memcpy(&hpm_page[hpm_pg_index], block, size);
+    hpm_pg_index += size;
+
+    return IPMI_CC_OK;
+  }
+  else
+  {
+    /* Complete the remaining bytes on the buffer */
+    memcpy(&hpm_page[hpm_pg_index], block, (PAYLOAD_HPM_PAGE_SIZE - hpm_pg_index));
+    remaining_bytes_start = (PAYLOAD_HPM_PAGE_SIZE - hpm_pg_index);
+
+    /* Program the complete page in the Flash */
+    flash_program_page(hpm_page_addr, &hpm_page[0], PAYLOAD_HPM_PAGE_SIZE);
+
+    hpm_page_addr += PAYLOAD_HPM_PAGE_SIZE;
+
+    /* Empty our buffer and reset the index */
+    memset(hpm_page, 0xFF, PAYLOAD_HPM_PAGE_SIZE);
+    hpm_pg_index = 0;
+
+    /* Save the trailing bytes */
+    memcpy(&hpm_page[hpm_pg_index], block + remaining_bytes_start, size - remaining_bytes_start);
+
+    hpm_pg_index = size - remaining_bytes_start;
+
+    return IPMI_CC_COMMAND_IN_PROGRESS;
+  }
 }
 
 uint8_t payload_hpm_finish_upload(uint32_t image_size)
 {
-  return IPMI_CC_ILLEGAL_COMMAND_DISABLED;
+  uint8_t cc = IPMI_CC_OK;
+
+  /* Check if the last page was already programmed */
+  if (!hpm_pg_index)
+  {
+    /* Program the complete page in the Flash */
+    flash_program_page(hpm_page_addr, &hpm_page[0], (PAYLOAD_HPM_PAGE_SIZE - hpm_pg_index));
+    hpm_pg_index = 0;
+    hpm_page_addr = 0;
+
+    cc = IPMI_CC_COMMAND_IN_PROGRESS;
+  }
+
+  /* Free page buffer */
+  vPortFree(hpm_page);
+  hpm_page = NULL;
+
+  return cc;
 }
 
 uint8_t payload_hpm_get_upgrade_status(void)
 {
-  return IPMI_CC_ILLEGAL_COMMAND_DISABLED;
+  if (is_flash_busy())
+  {
+    return IPMI_CC_COMMAND_IN_PROGRESS;
+  }
+  else
+  {
+    return IPMI_CC_OK;
+  }
 }
 
 uint8_t payload_hpm_activate_firmware(void)
 {
-  mmc_err err;
-
   /* Reset FPGA - Pulse PROGRAM_B pin */
-  err = mcp23016_write_pin(ext_gpios[EXT_GPIO_PROGRAM_B].port_num, ext_gpios[EXT_GPIO_PROGRAM_B].pin_num, false);
-
-  if (err != MMC_OK)
-  {
-    PRINT_ERR_LINE(err);
-  }
-
-  err = mcp23016_write_pin(ext_gpios[EXT_GPIO_PROGRAM_B].port_num, ext_gpios[EXT_GPIO_PROGRAM_B].pin_num, true);
-
-  if (err != MMC_OK)
-  {
-    PRINT_ERR_LINE(err);
-  }
+  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROGRAM_B), PIN_NUMBER(GPIO_FPGA_PROGRAM_B), GPIO_LEVEL_LOW);
+  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROGRAM_B), PIN_NUMBER(GPIO_FPGA_PROGRAM_B), GPIO_LEVEL_HIGH);
 
   return IPMI_CC_OK;
+}
+#endif
+
+#ifdef MODULE_ADN4604
+mmc_err clock_configuration(const uint8_t clk_cfg[16])
+{
+  adn_connect_map_t con;
+  mmc_err error;
+
+  /* Translate the configuration to enable or disable the outputs */
+  uint16_t out_enable_flag = {
+      ((clk_cfg[0] & 0x80) >> 7) << 0 |
+      ((clk_cfg[1] & 0x80) >> 7) << 1 |
+      ((clk_cfg[2] & 0x80) >> 7) << 2 |
+      ((clk_cfg[3] & 0x80) >> 7) << 3 |
+      ((clk_cfg[4] & 0x80) >> 7) << 4 |
+      ((clk_cfg[5] & 0x80) >> 7) << 5 |
+      ((clk_cfg[6] & 0x80) >> 7) << 6 |
+      ((clk_cfg[7] & 0x80) >> 7) << 7 |
+      ((clk_cfg[8] & 0x80) >> 7) << 8 |
+      ((clk_cfg[9] & 0x80) >> 7) << 9 |
+      ((clk_cfg[10] & 0x80) >> 7) << 10 |
+      ((clk_cfg[11] & 0x80) >> 7) << 11 |
+      ((clk_cfg[12] & 0x80) >> 7) << 12 |
+      ((clk_cfg[13] & 0x80) >> 7) << 13 |
+      ((clk_cfg[14] & 0x80) >> 7) << 14 |
+      ((clk_cfg[15] & 0x80) >> 7) << 15};
+
+  /* Disable UPDATE' pin by pulling it GPIO_LEVEL_HIGH */
+  gpio_set_pin_state(PIN_PORT(GPIO_ADN_UPDATE), PIN_NUMBER(GPIO_ADN_UPDATE), GPIO_LEVEL_HIGH);
+
+  /* There's a delay circuit in the Reset pin of the clock switch, we must wait until it clears out */
+  while (gpio_read_pin(PIN_PORT(GPIO_ADN_RESETN), PIN_NUMBER(GPIO_ADN_RESETN)) == 0)
+  {
+    vTaskDelay(50);
+  }
+
+  /* Configure the interconnects*/
+  con.out0 = clk_cfg[0] & 0x0F;
+  con.out1 = clk_cfg[1] & 0x0F;
+  con.out2 = clk_cfg[2] & 0x0F;
+  con.out3 = clk_cfg[3] & 0x0F;
+  con.out4 = clk_cfg[4] & 0x0F;
+  con.out5 = clk_cfg[5] & 0x0F;
+  con.out6 = clk_cfg[6] & 0x0F;
+  con.out7 = clk_cfg[7] & 0x0F;
+  con.out8 = clk_cfg[8] & 0x0F;
+  con.out9 = clk_cfg[9] & 0x0F;
+  con.out10 = clk_cfg[10] & 0x0F;
+  con.out11 = clk_cfg[11] & 0x0F;
+  con.out12 = clk_cfg[12] & 0x0F;
+  con.out13 = clk_cfg[13] & 0x0F;
+  con.out14 = clk_cfg[14] & 0x0F;
+  con.out15 = clk_cfg[15] & 0x0F;
+
+  error = adn4604_xpt_config(ADN_XPT_MAP0_CON_REG, con);
+  if (error != MMC_OK)
+  {
+    return error;
+  }
+
+  /* Enable desired outputs */
+  for (uint8_t i = 0; i < 16; i++)
+  {
+    if ((out_enable_flag >> i) & 0x1)
+    {
+      adn4604_tx_control(i, TX_ENABLED);
+    }
+    else
+    {
+      adn4604_tx_control(i, TX_DISABLED);
+    }
+  }
+
+  error = adn4604_active_map(ADN_XPT_MAP0);
+  if (error != MMC_OK)
+  {
+    return error;
+  }
+
+  return adn4604_update();
 }
 #endif

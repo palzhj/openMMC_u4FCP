@@ -47,7 +47,8 @@ void gpio_init(void);
 
 /* Pin definitions */
 // AMC
-#define GPIO_AMC_MODE PIN_DEF(PORT2, 13, 0, GPIO_DIR_INPUT)
+#define GPIO_MMC_ENABLE PIN_DEF(PORT1, 2, 0, GPIO_DIR_INPUT)
+#define AMC_MODE_ENABLE PIN_DEF(PORT2, 13, 0, GPIO_DIR_INPUT)
 
 /* Geographic Address pin definitions */
 #define GPIO_GA2 PIN_DEF(PORT0, 11, 0, GPIO_DIR_INPUT)
@@ -68,7 +69,7 @@ void gpio_init(void);
 #define GPIO_PMBUS_CTRL PIN_DEF(PORT1, 9, 1, GPIO_DIR_OUTPUT)
 
 /* FPGA Control */
-#define GPIO_FPGA_DONE_B PIN_DEF(PORT2, 15, 0, GPIO_DIR_INPUT)
+#define GPIO_FPGA_DONE   PIN_DEF(PORT2, 15, 0, GPIO_DIR_INPUT)
 #define GPIO_FPGA_PROG_B PIN_DEF(PORT2, 14, 1, GPIO_DIR_OUTPUT)
 #define GPIO_FPGA_RESET_B PIN_DEF(PORT0, 1, 1, GPIO_DIR_OUTPUT)
 
@@ -94,7 +95,7 @@ void gpio_init(void);
 
 /* Pin initialization (config) list */
 #define PIN_CFG_LIST        \
-      GPIO_AMC_MODE,        \
+      AMC_MODE_ENABLE,      \
       GPIO_GA0,             \
       GPIO_GA1,             \
       GPIO_GA2,             \
@@ -105,7 +106,7 @@ void gpio_init(void);
       GPIO_HOT_SWAP_HANDLE, \
       GPIO_PMBUS_ALERT_B,   \
       GPIO_PMBUS_CTRL,      \
-      GPIO_FPGA_DONE_B,     \
+      GPIO_FPGA_DONE  ,     \
       GPIO_FPGA_PROG_B,     \
       GPIO_FPGA_RESET_B,    \
       GPIO_CLK0_INT_B,      \

@@ -154,11 +154,3 @@ void DebugMon_Handler(void)
 /**
   * @}
   */
-
-// void _ipmi_handlers(void)
-// {
-// }
-
-// void _eipmi_handlers(void)
-// {
-// }

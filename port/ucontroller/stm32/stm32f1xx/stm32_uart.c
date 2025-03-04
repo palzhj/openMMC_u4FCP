@@ -123,12 +123,12 @@ void uart_init(uint8_t id)
 
   printf("\n");
 
-  xTaskCreate(StartDefaultTask,           // Task function
-    "UART Task",         // Task name
-    configMINIMAL_STACK_SIZE,                // Stack size (in words)
-    NULL,               // Parameters passed to the task (NULL in this case)
-    (( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,                  // Task priority (1 is the lowest priority)
-    NULL);
+  // xTaskCreate(StartDefaultTask,           // Task function
+  //   "UART Task",         // Task name
+  //   configMINIMAL_STACK_SIZE,                // Stack size (in words)
+  //   NULL,               // Parameters passed to the task (NULL in this case)
+  //   (( UBaseType_t ) configTIMER_TASK_PRIORITY ) | portPRIVILEGE_BIT,                  // Task priority (1 is the lowest priority)
+  //   NULL);
 }
 
 /**
@@ -193,14 +193,12 @@ void uart_read(uint8_t id, char *buf, uint32_t len)
 }
 
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *pvParameters)
-{
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    uart_send(UART_DEBUG, (char*)".", 1);
-  }
-  /* USER CODE END 5 */
-}
+// void StartDefaultTask(void *pvParameters)
+// {
+//   /* Infinite loop */
+//   for(;;)
+//   {
+//     vTaskDelay(pdMS_TO_TICKS(2000));
+//     uart_send(UART_DEBUG, (char*)".", 1);
+//   }
+// }
