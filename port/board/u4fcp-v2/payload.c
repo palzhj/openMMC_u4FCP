@@ -40,8 +40,17 @@
 #include "board_led.h"
 #include "board_config.h"
 #include "eeprom_24xx512.h"
+#include "i2c.h"
+#include "i2c_mapping.h"
+#ifdef MODULE_ADN4604
 #include "adn4604.h"
 #include "clock_config.h"
+#include "default_0-Registers.h"
+#include "default_1-Registers.h"
+#endif
+#ifdef MODULE_VIO_TPL0102
+#include "tpl0102.h"
+#endif
 // #include "ad84xx.h"
 // #include "mcp23016.h"
 
@@ -103,34 +112,6 @@ static void fpga_soft_reset(void)
   LEDUpdate(FRU_AMC, LED1, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0);
 }
 
-static void check_fpga_reset(void)
-{
-  // static TickType_t edge_time;
-  // static uint8_t reset_lock;
-  // static uint8_t last_state = 1;
-
-  // TickType_t diff;
-  // TickType_t cur_time = xTaskGetTickCount();
-
-  // uint8_t cur_state = gpio_read_pin( PIN_PORT(GPIO_TP), PIN_NUMBER(GPIO_TP));
-
-  // if ( (cur_state == 0) && (last_state == 1) ) {
-  //     /* Detects the falling edge of the front panel button */
-  //     edge_time = cur_time;
-  //     reset_lock = 0;
-  // }
-
-  // diff = getTickDifference( cur_time, edge_time );
-
-  // if ( (diff > pdMS_TO_TICKS(2000)) && (reset_lock == 0) && (cur_state == 0) ) {
-  //     fpga_soft_reset();
-  //     /* If the user continues to press the button after the 2s, prevent this action to be repeated */
-  //     reset_lock = 1;
-  // }
-
-  // last_state = cur_state;
-}
-
 uint8_t payload_check_pgood()
 {
   /* Threshold set to ~8V */
@@ -166,22 +147,197 @@ uint8_t payload_check_pgood()
 
   // return 0;
 
-  return 1;
+  if (gpio_read_pin(PIN_PORT(GPIO_HOT_SWAP_HANDLE), PIN_NUMBER(GPIO_HOT_SWAP_HANDLE)))
+  {
+    return 0;
+  }
+  else
+  {
+    return 1;
+  }
 }
 
-#ifdef MODULE_DAC_AD84XX
-void set_vadj_volt(uint8_t fmc_slot, float v)
+#ifdef MODULE_VIO_TPL0102
+
+// Vout = 0.6V * (60.4k/(30.1k + dac * 100k / 256)+1)
+#define CONV_VLOT(voltage) (uint8_t)((60.4 / ((voltage) / 0.6 - 1) - 30.2) * 256 / 100)
+#define CONV_DAC(dac) (float)(0.6 * (60.4 / (30.2 + (dac) * 100 / 256) + 1))
+
+void tpl0102_set_voltage(uint8_t chn, float voltage, bool non_volatile)
 {
-  uint32_t res_total;
-  uint32_t res_dac;
+  uint8_t dac;
+  if (voltage > 1.8)
+    voltage = 1.8;
+  if (voltage < 0.9)
+    voltage = 0.9;
 
-  res_total = (uint32_t)(1162.5 / (v - 0.775)) - 453;
-  res_dac = (1800 * res_total) / (1800 - res_total);
+  dac = CONV_VLOT(voltage);
+#ifdef DEBUG
+  printf("Set FMC%d DAC=%d\n", chn, dac);
+#endif
+  if (non_volatile)
+    tpl0102_set_non_volatile_val(chn, dac);
+  else
+    tpl0102_set_val(chn, dac);
+}
 
-  /* Use only the lower 8-bits (the dac only has 256 steps) */
-  res_dac &= 0xFF;
+float tpl0102_get_voltage(uint8_t chn)
+{
+  uint8_t val;
+  float voltage;
 
-  dac_ad84xx_set_res(fmc_slot, res_dac);
+  val = tpl0102_get_val(chn);
+#ifdef DEBUG
+  printf("Get DAC=%d\n", val);
+#endif
+  voltage = CONV_DAC(val);
+  return voltage;
+}
+
+#endif
+
+#ifdef MODULE_ADN4604
+
+mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t* si5345_revd_registers_ptr)
+{
+  uint8_t page_curr, page_prev = 0xFF;
+  uint32_t i;
+  uint8_t i2c_addr, i2c_interface;
+  uint8_t i2c_written = 0;
+  uint8_t err_cnt = 0;
+  uint8_t tx_data[2];
+
+	for(i = 0; i < SI5345_REVD_REG_CONFIG_NUM_REGS; i++)
+	{
+    if(i == 3) vTaskDelay(pdMS_TO_TICKS(300));
+		page_curr = (uint8_t)((si5345_revd_registers_ptr[i].address>>8)&0xFF);
+    tx_data[0] = 0x1;
+    tx_data[1] = page_curr;
+		if (page_curr != page_prev)
+    {
+      err_cnt = 0;
+      while (i2c_written != 2)
+      {
+        if (i2c_take_by_chipid(chip_id, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+        {
+          i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
+          i2c_give(i2c_interface);
+        }
+        if (i2c_written==0)
+        {
+          err_cnt++;
+          if(err_cnt == 0xF) return MMC_IO_ERR;
+          else vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+        }
+      }
+    }
+    tx_data[0] = (uint8_t)(si5345_revd_registers_ptr[i].address&0xFF);
+    tx_data[1] = si5345_revd_registers_ptr[i].value;
+    err_cnt = 0;
+    while (i2c_written != 2)
+    {
+      if (i2c_take_by_chipid(chip_id, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+      {
+        i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
+        i2c_give(i2c_interface);
+      }
+      if (i2c_written==0)
+      {
+        err_cnt++;
+        if(err_cnt == 0xF) return MMC_IO_ERR;
+        else vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+      }
+    }
+    page_prev = page_curr;
+	}
+  return MMC_OK;
+}
+
+mmc_err clock_configuration(const uint8_t clk_cfg[16])
+{
+  adn_connect_map_t con;
+  mmc_err error;
+
+  /* Translate the configuration to enable or disable the outputs */
+  uint16_t out_enable_flag = {
+      ((clk_cfg[0] & 0x80) >> 7) << 0 |
+      ((clk_cfg[1] & 0x80) >> 7) << 1 |
+      ((clk_cfg[2] & 0x80) >> 7) << 2 |
+      ((clk_cfg[3] & 0x80) >> 7) << 3 |
+      ((clk_cfg[4] & 0x80) >> 7) << 4 |
+      ((clk_cfg[5] & 0x80) >> 7) << 5 |
+      ((clk_cfg[6] & 0x80) >> 7) << 6 |
+      ((clk_cfg[7] & 0x80) >> 7) << 7 |
+      ((clk_cfg[8] & 0x80) >> 7) << 8 |
+      ((clk_cfg[9] & 0x80) >> 7) << 9 |
+      ((clk_cfg[10] & 0x80) >> 7) << 10 |
+      ((clk_cfg[11] & 0x80) >> 7) << 11 |
+      ((clk_cfg[12] & 0x80) >> 7) << 12 |
+      ((clk_cfg[13] & 0x80) >> 7) << 13 |
+      ((clk_cfg[14] & 0x80) >> 7) << 14 |
+      ((clk_cfg[15] & 0x80) >> 7) << 15};
+
+  /* Disable UPDATE' pin by pulling it GPIO_LEVEL_HIGH */
+  // gpio_set_pin_state(PIN_PORT(GPIO_ADN_UPDATE), PIN_NUMBER(GPIO_ADN_UPDATE), GPIO_LEVEL_HIGH);
+
+  /* There's a delay circuit in the Reset pin of the clock switch, we must wait until it clears out */
+  // while (gpio_read_pin(PIN_PORT(GPIO_ADN_RESETN), PIN_NUMBER(GPIO_ADN_RESETN)) == 0)
+  // {
+  //   vTaskDelay(50);
+  // }
+
+  /* Configure the interconnects*/
+  con.out0 = clk_cfg[0] & 0x0F;
+  con.out1 = clk_cfg[1] & 0x0F;
+  con.out2 = clk_cfg[2] & 0x0F;
+  con.out3 = clk_cfg[3] & 0x0F;
+  con.out4 = clk_cfg[4] & 0x0F;
+  con.out5 = clk_cfg[5] & 0x0F;
+  con.out6 = clk_cfg[6] & 0x0F;
+  con.out7 = clk_cfg[7] & 0x0F;
+  con.out8 = clk_cfg[8] & 0x0F;
+  con.out9 = clk_cfg[9] & 0x0F;
+  con.out10 = clk_cfg[10] & 0x0F;
+  con.out11 = clk_cfg[11] & 0x0F;
+  con.out12 = clk_cfg[12] & 0x0F;
+  con.out13 = clk_cfg[13] & 0x0F;
+  con.out14 = clk_cfg[14] & 0x0F;
+  con.out15 = clk_cfg[15] & 0x0F;
+
+  error = adn4604_xpt_config(ADN_XPT_MAP0_CON_REG, con);
+  if (error != MMC_OK)
+  {
+    return error;
+  }
+
+  /* Enable desired outputs */
+  for (uint8_t i = 0; i < 16; i++)
+  {
+    if ((out_enable_flag >> i) & 0x1)
+    {
+      error = adn4604_tx_control(i, TX_ENABLED);
+      if (error != MMC_OK)
+      {
+        return error;
+      }
+    }
+    else
+    {
+      error = adn4604_tx_control(i, TX_DISABLED);
+      if (error != MMC_OK)
+      {
+        return error;
+      }
+    }
+  }
+
+  error = adn4604_active_map(ADN_XPT_MAP0);
+  if (error != MMC_OK)
+  {
+    return error;
+  }
+
+  return adn4604_update();
 }
 #endif
 
@@ -208,27 +364,6 @@ TaskHandle_t vTaskPayload_Handle;
 
 void payload_init(void)
 {
-  bool standalone_mode = false;
-  // mmc_err err;
-
-  if (get_ipmb_addr() == IPMB_ADDR_DISCONNECTED)
-  {
-    standalone_mode = true;
-  }
-
-  if (!standalone_mode)
-  {
-    /* Wait until ENABLE# signal is asserted ( ENABLE == 0) */
-    while (gpio_read_pin(PIN_PORT(GPIO_MMC_ENABLE), PIN_NUMBER(GPIO_MMC_ENABLE)) == 1)
-    {
-    };
-  }
-
-  /* Recover clock switch configuration saved in EEPROM */
-#ifdef MODULE_CLOCK_CONFIG
-// eeprom_24xx512_read(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
-#endif
-
   xTaskCreate(vTaskPayload, "Payload", 256, NULL, tskPAYLOAD_PRIORITY, &vTaskPayload_Handle);
 
   amc_payload_evt = xEventGroupCreate();
@@ -243,19 +378,54 @@ void payload_init(void)
   Chip_ADC_EnableChannel(LPC_ADC, ADC_CH1, ENABLE);
 #endif
 
-#ifdef MODULE_DAC_AD84XX
+#ifdef MODULE_VIO_TPL0102
   /* Configure the PVADJ DAC */
-  dac_ad84xx_init();
-
-  set_vadj_volt(0, 2.5);
-  set_vadj_volt(1, 2.5);
+  tpl0102_init();
+  tpl0102_set_voltage(0, 1.8, false);
+  tpl0102_set_voltage(1, 1.8, false);
 #endif
-
-  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B), GPIO_LEVEL_HIGH);
 }
+
+// Inputs for ADN4604
+#define ADN4604_IN_AMC_TX_P17 0
+#define ADN4604_IN_AMC_RX_P17 1
+#define ADN4604_IN_TCLKD 2
+#define ADN4604_IN_TCLKC 3
+#define ADN4604_IN_TCLKA 4
+#define ADN4604_IN_TCLKB 5
+#define ADN4604_IN_FCLKA 6
+#define ADN4604_IN_FPGA_CLK_OUT 7
+#define ADN4604_IN_PLL1_OUT 8
+#define ADN4604_IN_PLL0_OUT 9
+#define ADN4604_IN_FMC1_CLK_M2C 10
+#define ADN4604_IN_FMC1_CLK_BIDIR 11
+#define ADN4604_IN_FMC0_CLK_M2C 12
+#define ADN4604_IN_FMC0_CLK_BIDIR 13
+#define ADN4604_IN_LEMO_CLK 14
+#define ADN4604_IN_RTM2AMC_CLK 15
+
+#define CLK_EN 0x80
 
 void vTaskPayload(void *pvParameters)
 {
+  uint8_t clock_config[16];
+  clock_config[0] = ADN4604_IN_PLL0_OUT;
+  clock_config[1] = ADN4604_IN_PLL0_OUT | CLK_EN;
+  clock_config[2] = ADN4604_IN_PLL0_OUT;
+  clock_config[3] = ADN4604_IN_PLL0_OUT;
+  clock_config[4] = ADN4604_IN_PLL0_OUT;
+  clock_config[5] = ADN4604_IN_PLL0_OUT;
+  clock_config[6] = ADN4604_IN_PLL0_OUT;
+  clock_config[7] = ADN4604_IN_PLL0_OUT;
+  clock_config[8] = ADN4604_IN_PLL0_OUT;
+  clock_config[9] = ADN4604_IN_PLL0_OUT;
+  clock_config[10] = ADN4604_IN_PLL0_OUT;
+  clock_config[11] = ADN4604_IN_PLL0_OUT;
+  clock_config[12] = ADN4604_IN_PLL0_OUT;
+  clock_config[13] = ADN4604_IN_PLL0_OUT;
+  clock_config[14] = ADN4604_IN_PLL0_OUT;
+  clock_config[15] = ADN4604_IN_PLL0_OUT;
+
   uint8_t state = PAYLOAD_NO_POWER;
   /* Use arbitrary state value to force the first state update */
   uint8_t new_state = -1;
@@ -266,48 +436,66 @@ void vTaskPayload(void *pvParameters)
   /* Payload DCDCs good flag */
   uint8_t DCDC_good = 0;
 
+  /* FPGA program done flag */
+  uint8_t FPGA_prom_done = 0;
+
   uint8_t QUIESCED_req = 0;
   EventBits_t current_evt;
 
   extern sensor_t *hotswap_amc_sensor;
 
   TickType_t xLastWakeTime;
-  // mmc_err err;
-
   xLastWakeTime = xTaskGetTickCount();
 
-  gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROG_B), PIN_NUMBER(GPIO_FPGA_PROG_B), GPIO_LEVEL_HIGH);
+#ifdef MODULE_ADN4604
+  /* Recover clock switch configuration saved in EEPROM */
+  // eeprom_24xx512_read(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
+#endif
+
+  if (get_ipmb_addr() == IPMB_ADDR_DISCONNECTED) // standalone mode
+  {
+    while (!DCDC_good)
+    {
+      DCDC_good = gpio_read_pin(PIN_PORT(GPIO_TP), PIN_NUMBER(GPIO_TP));
+    }
+#ifdef MODULE_ADN4604
+    /* Recover clock switch configuration saved in EEPROM */
+    // eeprom_24xx512_read(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
+    if (adn4604_reset() == MMC_OK)
+      printf("ADN4604 reset OK\n");
+    else
+      printf("ADN4604 reset ERROR\n");
+    if (clock_configuration(clock_config) == MMC_OK)
+      printf("ADN4604 config OK\n");
+    else
+      printf("ADN4604 config ERROR\n");
+    if(pll_configuration(CHIP_ID_SI5345_0, si5345_revd_registers_0) == MMC_OK)
+      printf("PLL0 config OK\n");
+    else
+      printf("PLL0 config ERROR\n");
+    if(pll_configuration(CHIP_ID_SI5345_1, si5345_revd_registers_1) == MMC_OK)
+      printf("PLL1 config OK\n");
+    else
+      printf("PLL1 config ERROR\n");
+#endif
+    while (!FPGA_prom_done)
+    {
+      FPGA_prom_done = gpio_read_pin(PIN_PORT(GPIO_FPGA_DONE), PIN_NUMBER(GPIO_FPGA_DONE));
+    }
+    // reset FPGA
+    fpga_soft_reset();
+
+    for (;;)
+    {
+      vTaskDelayUntil(&xLastWakeTime, PAYLOAD_BASE_DELAY);
+    }
+  }
 
   for (;;)
   {
-    check_fpga_reset();
-
     new_state = state;
 
     current_evt = xEventGroupGetBits(amc_payload_evt);
-    if (current_evt & PAYLOAD_MESSAGE_QUIESCE)
-    {
-
-      /*
-       * If you issue a shutdown fru command in the MCH shell, the payload power
-       * task will receive a PAYLOAD_MESSAGE_QUIESCE message and set the
-       * QUIESCED_req flag to '1' and the MCH will shutdown the 12VP0 power,
-       * making the payload power task go to PAYLOAD_NO_POWER state.
-       * So, if we are in the PAYLOAD_QUIESCED state and receive a
-       * PAYLOAD_MESSAGE_QUIESCE message, the QUIESCED_req flag
-       * should be '0'
-       */
-
-      if (state == PAYLOAD_QUIESCED)
-      {
-        QUIESCED_req = 0;
-      }
-      else
-      {
-        QUIESCED_req = 1;
-      }
-      xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_QUIESCE);
-    }
 
     /*
      * When receive a PAYLOAD_MESSAGE_CLOCK_CONFIG message, configure the clock switch
@@ -316,11 +504,25 @@ void vTaskPayload(void *pvParameters)
     if (current_evt & PAYLOAD_MESSAGE_CLOCK_CONFIG)
     {
 #ifdef MODULE_ADN4604
-      eeprom_24xx512_write(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
+      // eeprom_24xx02_write(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
       if (PAYLOAD_FPGA_ON)
       {
-        adn4604_reset();
-        clock_configuration(clock_config);
+        if (adn4604_reset() == MMC_OK)
+          printf("ADN4604 reset OK\n");
+        else
+          printf("ADN4604 reset ERROR\n");
+        if (clock_configuration(clock_config) == MMC_OK)
+          printf("ADN4604 config OK\n");
+        else
+          printf("ADN4604 config ERROR\n");
+        if(pll_configuration(CHIP_ID_SI5345_0, si5345_revd_registers_0) == MMC_OK)
+          printf("PLL0 config OK\n");
+        else
+          printf("PLL0 config ERROR\n");
+        if(pll_configuration(CHIP_ID_SI5345_1, si5345_revd_registers_1) == MMC_OK)
+          printf("PLL1 config OK\n");
+        else
+          printf("PLL1 config ERROR\n");
       }
 #endif
       xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_CLOCK_CONFIG);
@@ -337,6 +539,24 @@ void vTaskPayload(void *pvParameters)
       xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_REBOOT | PAYLOAD_MESSAGE_WARM_RST);
     }
 
+    if (current_evt & PAYLOAD_MESSAGE_QUIESCE)
+    {
+      /*
+       * If you issue a shutdown fru command in the MCH shell, the payload power
+       * task will receive a PAYLOAD_MESSAGE_QUIESCE message and set the
+       * QUIESCED_req flag to '1' and the MCH will shutdown the 12VP0 power,
+  {     * maki}ng the payload power task go to PAYLOAD_NO_POWER state.
+       * So, if we are in the PAYLOAD_QUIESCED state and receive a
+       * PAYLOAD_MESSAGE_QUIESCE message, the QUIESCED_req flag
+       * should be '0'
+       */
+      // if (state == PAYLOAD_QUIESCED)
+      //   QUIESCED_req = 0;
+      // else
+      QUIESCED_req = 1;
+      xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_QUIESCE);
+    }
+
     PP_good = payload_check_pgood();
     DCDC_good = gpio_read_pin(PIN_PORT(GPIO_TP), PIN_NUMBER(GPIO_TP));
 
@@ -351,13 +571,16 @@ void vTaskPayload(void *pvParameters)
       break;
 
     case PAYLOAD_POWER_GOOD_WAIT:
-      /* Turn DDC converters on */
+      /* Turn DCDC converters on */
       setDC_DC_ConvertersON(true);
 
       /* Clear hotswap sensor backend power failure bits */
       hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_BACKEND_PWR_SHUTDOWN_MASK);
       hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_BACKEND_PWR_FAILURE_MASK);
 
+#ifdef DEBUG
+      printf("DCDC_good=%d\n", DCDC_good);
+#endif
       if (QUIESCED_req || (PP_good == 0))
       {
         new_state = PAYLOAD_SWITCHING_OFF;
@@ -374,11 +597,27 @@ void vTaskPayload(void *pvParameters)
 
 #ifdef MODULE_ADN4604
       /* Configure clock switch */
-      if (clock_configuration(clock_config) == MMC_OK)
+      if (adn4604_reset() == MMC_OK)
       {
-        // Only change the state if the clock switch configuration succeeds
-        new_state = PAYLOAD_FPGA_ON;
+        if (clock_configuration(clock_config) == MMC_OK)
+        {
+          printf("ADN4604 config OK\n");
+          if(pll_configuration(CHIP_ID_SI5345_0, si5345_revd_registers_0) == MMC_OK)
+          {
+            printf("PLL0 config OK\n");
+            if(pll_configuration(CHIP_ID_SI5345_1, si5345_revd_registers_1) == MMC_OK)
+            {
+              printf("PLL1 config OK\n");
+              // Only change the state if the clock switch configuration succeeds
+              new_state = PAYLOAD_FPGA_ON;
+            }
+            else printf("PLL1 config ERROR\n");
+          }
+          else printf("PLL0 config ERROR\n");
+        }
+        else printf("ADN4604 config ERROR\n");
       }
+      // else printf("ADN4604 reset ERROR\n");
 #else
       new_state = PAYLOAD_FPGA_ON;
 #endif
@@ -400,6 +639,7 @@ void vTaskPayload(void *pvParameters)
       /* Respond to quiesce event if any */
       if (QUIESCED_req)
       {
+        vTaskDelay(pdMS_TO_TICKS(1000));
         hotswap_set_mask_bit(HOTSWAP_AMC, HOTSWAP_QUIESCED_MASK);
         hotswap_send_event(hotswap_amc_sensor, HOTSWAP_STATE_QUIESCED);
         hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_QUIESCED_MASK);
@@ -555,86 +795,5 @@ uint8_t payload_hpm_activate_firmware(void)
   gpio_set_pin_state(PIN_PORT(GPIO_FPGA_PROGRAM_B), PIN_NUMBER(GPIO_FPGA_PROGRAM_B), GPIO_LEVEL_HIGH);
 
   return IPMI_CC_OK;
-}
-#endif
-
-#ifdef MODULE_ADN4604
-mmc_err clock_configuration(const uint8_t clk_cfg[16])
-{
-  adn_connect_map_t con;
-  mmc_err error;
-
-  /* Translate the configuration to enable or disable the outputs */
-  uint16_t out_enable_flag = {
-      ((clk_cfg[0] & 0x80) >> 7) << 0 |
-      ((clk_cfg[1] & 0x80) >> 7) << 1 |
-      ((clk_cfg[2] & 0x80) >> 7) << 2 |
-      ((clk_cfg[3] & 0x80) >> 7) << 3 |
-      ((clk_cfg[4] & 0x80) >> 7) << 4 |
-      ((clk_cfg[5] & 0x80) >> 7) << 5 |
-      ((clk_cfg[6] & 0x80) >> 7) << 6 |
-      ((clk_cfg[7] & 0x80) >> 7) << 7 |
-      ((clk_cfg[8] & 0x80) >> 7) << 8 |
-      ((clk_cfg[9] & 0x80) >> 7) << 9 |
-      ((clk_cfg[10] & 0x80) >> 7) << 10 |
-      ((clk_cfg[11] & 0x80) >> 7) << 11 |
-      ((clk_cfg[12] & 0x80) >> 7) << 12 |
-      ((clk_cfg[13] & 0x80) >> 7) << 13 |
-      ((clk_cfg[14] & 0x80) >> 7) << 14 |
-      ((clk_cfg[15] & 0x80) >> 7) << 15};
-
-  /* Disable UPDATE' pin by pulling it GPIO_LEVEL_HIGH */
-  gpio_set_pin_state(PIN_PORT(GPIO_ADN_UPDATE), PIN_NUMBER(GPIO_ADN_UPDATE), GPIO_LEVEL_HIGH);
-
-  /* There's a delay circuit in the Reset pin of the clock switch, we must wait until it clears out */
-  while (gpio_read_pin(PIN_PORT(GPIO_ADN_RESETN), PIN_NUMBER(GPIO_ADN_RESETN)) == 0)
-  {
-    vTaskDelay(50);
-  }
-
-  /* Configure the interconnects*/
-  con.out0 = clk_cfg[0] & 0x0F;
-  con.out1 = clk_cfg[1] & 0x0F;
-  con.out2 = clk_cfg[2] & 0x0F;
-  con.out3 = clk_cfg[3] & 0x0F;
-  con.out4 = clk_cfg[4] & 0x0F;
-  con.out5 = clk_cfg[5] & 0x0F;
-  con.out6 = clk_cfg[6] & 0x0F;
-  con.out7 = clk_cfg[7] & 0x0F;
-  con.out8 = clk_cfg[8] & 0x0F;
-  con.out9 = clk_cfg[9] & 0x0F;
-  con.out10 = clk_cfg[10] & 0x0F;
-  con.out11 = clk_cfg[11] & 0x0F;
-  con.out12 = clk_cfg[12] & 0x0F;
-  con.out13 = clk_cfg[13] & 0x0F;
-  con.out14 = clk_cfg[14] & 0x0F;
-  con.out15 = clk_cfg[15] & 0x0F;
-
-  error = adn4604_xpt_config(ADN_XPT_MAP0_CON_REG, con);
-  if (error != MMC_OK)
-  {
-    return error;
-  }
-
-  /* Enable desired outputs */
-  for (uint8_t i = 0; i < 16; i++)
-  {
-    if ((out_enable_flag >> i) & 0x1)
-    {
-      adn4604_tx_control(i, TX_ENABLED);
-    }
-    else
-    {
-      adn4604_tx_control(i, TX_DISABLED);
-    }
-  }
-
-  error = adn4604_active_map(ADN_XPT_MAP0);
-  if (error != MMC_OK)
-  {
-    return error;
-  }
-
-  return adn4604_update();
 }
 #endif

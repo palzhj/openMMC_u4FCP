@@ -26,8 +26,11 @@
                 "MODULE_SENSORS",
                 "MODULE_HOTSWAP",
                 "MODULE_PAYLOAD",
+                "MODULE_VIO_TPL0102",
                 // "MODULE_WATCHDOG",
                 "FRU_WRITE_EEPROM",
+                "MODULE_UCD90XXX",
+                "MODULE_ADN4604",
                 "MODULE_BOARD_CONFIG"
             ],
             "compilerPath": "/usr/bin/arm-none-eabi-gcc",

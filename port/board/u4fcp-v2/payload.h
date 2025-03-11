@@ -39,6 +39,12 @@
 
 #include "event_groups.h"
 
+typedef struct
+{
+  uint16_t address; /* 16-bit register address */
+  uint8_t value; /* 8-bit register data */
+} si5345_revd_register_t;
+
 /**
  * @brief Payload state machine state numbers
  */

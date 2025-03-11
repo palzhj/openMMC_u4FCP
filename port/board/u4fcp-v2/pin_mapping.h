@@ -47,7 +47,7 @@ void gpio_init(void);
 
 /* Pin definitions */
 // AMC
-#define GPIO_MMC_ENABLE PIN_DEF(PORT1, 2, 0, GPIO_DIR_INPUT)
+#define GPIO_MMC_ENABLE PIN_DEF(PORT1, 2, 0, GPIO_DIR_INPUT)  // BOOT1
 #define AMC_MODE_ENABLE PIN_DEF(PORT2, 13, 0, GPIO_DIR_INPUT)
 
 /* Geographic Address pin definitions */
