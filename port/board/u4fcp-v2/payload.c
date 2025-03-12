@@ -216,6 +216,7 @@ mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t* si5345_
 		if (page_curr != page_prev)
     {
       err_cnt = 0;
+      i2c_written = 0;
       while (i2c_written != 2)
       {
         if (i2c_take_by_chipid(chip_id, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
@@ -223,17 +224,19 @@ mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t* si5345_
           i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
           i2c_give(i2c_interface);
         }
-        if (i2c_written==0)
+        if (i2c_written!=2)
         {
           err_cnt++;
           if(err_cnt == 0xF) return MMC_IO_ERR;
           else vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
         }
+        // else printf("PLL write 0x%x to 0x%x\n", tx_data[1], tx_data[0]);
       }
     }
     tx_data[0] = (uint8_t)(si5345_revd_registers_ptr[i].address&0xFF);
     tx_data[1] = si5345_revd_registers_ptr[i].value;
     err_cnt = 0;
+    i2c_written = 0;
     while (i2c_written != 2)
     {
       if (i2c_take_by_chipid(chip_id, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
@@ -241,12 +244,13 @@ mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t* si5345_
         i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
         i2c_give(i2c_interface);
       }
-      if (i2c_written==0)
+      if (i2c_written!=2)
       {
         err_cnt++;
         if(err_cnt == 0xF) return MMC_IO_ERR;
         else vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
       }
+      // else printf("PLL write 0x%x to 0x%x\n", tx_data[1], tx_data[0]);
     }
     page_prev = page_curr;
 	}
