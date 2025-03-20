@@ -51,6 +51,7 @@ typedef struct
 extern enum {
     PAYLOAD_NO_POWER = 0,
     PAYLOAD_POWER_GOOD_WAIT,
+    PAYLOAD_STATE_CLK_SETUP,
     PAYLOAD_STATE_FPGA_SETUP,
     PAYLOAD_FPGA_ON,
     PAYLOAD_SWITCHING_OFF,
@@ -71,7 +72,7 @@ extern enum {
 #define PAYLOAD_MESSAGE_RTM_ENABLE      (1 << 4)
 #define PAYLOAD_MESSAGE_DCDC_PGOOD      (1 << 5)
 #define PAYLOAD_MESSAGE_DCDC_PGOODn     (1 << 6)
-#define PAYLOAD_MESSAGE_CLOCK_CONFIG	(1 << 7)
+#define PAYLOAD_MESSAGE_CLOCK_CONFIG	  (1 << 7)
 /**
  * @}
  */
@@ -79,7 +80,57 @@ extern enum {
 /**
  * @brief Payload task unblock delay
  */
-#define PAYLOAD_BASE_DELAY 100
+#define PAYLOAD_BASE_DELAY 1000
+
+#ifdef MODULE_UCD90XXX
+
+extern enum {
+  UCD_AMC_12V_ID = 0,
+  UCD_RTM_12V_CURR_ID,
+  UCD_FMC0_12V_CURR_ID,
+  UCD_FMC0_VADJ_ID,
+  UCD_FMC0_3V3_CURR_ID,
+  UCD_FMC1_12V_CURR_ID,
+  UCD_FMC1_VADJ_ID,
+  UCD_FMC1_3V3_CURR_ID,
+  UCD_FPGA_0V85_ID,
+  UCD_FPGA_1V8_ID,
+  UCD_FPGA_0V9A_ID,
+  UCD_FPGA_1V2A_ID,
+  UCD_DDR_1V2T_ID,
+  UCD_DDR_1V2B_ID,
+  UCD_AMC_IO_3V3_ID,
+  UCD_CH_COUNT
+} UCD_AMC;
+
+// Input
+#define UCD_GPIO_PG               0     // MAR1
+
+// #define UCD_GPIO_FMC0_PRSNT       9     // GPI2
+// #define UCD_GPIO_FMC0_3V3AUX_FLT  25    // GPIO18
+// #define UCD_GPIO_FMC0_3V3_FLT     23    // GPIO16
+// #define UCD_GPIO_FMC0_12V0_FLT    12    // GPIO14
+
+// #define UCD_GPIO_FMC1_PRSNT       8     // GPI1
+// #define UCD_GPIO_FMC1_3V3AUX_FLT  24    // GPIO17
+// #define UCD_GPIO_FMC1_3V3_FLT     19    // GPIO2
+// #define UCD_GPIO_FMC1_12V0_FLT    21    // GPIO4
+
+// // Output
+// #define UCD_GPIO_FMC0_3V3AUX_EN   2     // GPIO7
+// #define UCD_GPIO_FMC1_3V3AUX_EN   0     // GPIO5
+
+// #define UCD_GPIO_FMC0_VADJ_PG     4     // GPIO9
+// #define UCD_GPIO_FMC1_VADJ_PG     5     // GPIO10
+
+// #define UCD_GPIO_FMC0_12V0_PG     18    // GPIO1
+// #define UCD_GPIO_FMC1_12V0_PG     20    // GPIO3
+
+// #define UCD_GPIO_FMC0_3V3_PG      22    // GPIO13
+// #define UCD_GPIO_FMC1_3V3_PG      13    // GPIO15
+
+#endif
+
 
 /**
  * @brief Payload task handle variable

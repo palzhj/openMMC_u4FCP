@@ -11,7 +11,13 @@
         "portable.h": "c",
         "uart_debug.h": "c",
         "i2c_mapping.h": "c",
-        "fru_editor.h": "c"
+        "fru_editor.h": "c",
+        "task_priorities.h": "c",
+        "i2c.h": "c",
+        "tpl0102.h": "c",
+        "system_error": "c",
+        "sensors.h": "c",
+        "ucd90xxx.h": "c"
     },
     "cortex-debug.variableUseNaturalFormat": true
 }

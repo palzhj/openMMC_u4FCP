@@ -51,6 +51,9 @@
 #ifdef MODULE_VIO_TPL0102
 #include "tpl0102.h"
 #endif
+#ifdef MODULE_UCD90XXX
+#include "ucd90xxx.h"
+#endif
 // #include "ad84xx.h"
 // #include "mcp23016.h"
 
@@ -112,58 +115,56 @@ static void fpga_soft_reset(void)
   LEDUpdate(FRU_AMC, LED1, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0);
 }
 
+#ifdef MODULE_UCD90XXX
 uint8_t payload_check_pgood()
 {
-  /* Threshold set to ~8V */
-  // const uint16_t PAYLOAD_THRESHOLD = 0x9B2;
-  // uint16_t dataADC;
-
-  // Chip_ADC_SetStartMode(LPC_ADC, ADC_START_NOW, ADC_TRIGGERMODE_RISING);
-
-  // /* Waiting for A/D conversion complete */
-  // while (Chip_ADC_ReadStatus(LPC_ADC, ADC_CH1, ADC_DR_DONE_STAT) != SET) {}
-  // /* Read ADC value */
-  // Chip_ADC_ReadValue(LPC_ADC, ADC_CH1, &dataADC);
-
-  // if (dataADC > PAYLOAD_THRESHOLD){
-  //     return 1;
-  // }
-  // return 0;
-
-  // sensor_t * p_sensor;
-  // SDR_type_01h_t *sdr;
-
-  // extern const SDR_type_01h_t SDR_FMC1_12V;
-
-  // /* Iterate through the SDR Table to find all the LM75 entries */
-  // for ( p_sensor = sdr_head; (p_sensor != NULL) || (p_sensor->task_handle == NULL); p_sensor = p_sensor->next) {
-  //     if (p_sensor->sdr == &SDR_FMC1_12V) {
-  //         sdr = ( SDR_type_01h_t * ) p_sensor->sdr;
-  //         *pgood_flag = ( ( p_sensor->readout_value >= (sdr->lower_critical_thr ) ) &&
-  //                         ( p_sensor->readout_value <= (sdr->upper_critical_thr ) ) );
-  //         return 1;
-  //     }
-  // }
-
-  // return 0;
-
-  if (gpio_read_pin(PIN_PORT(GPIO_HOT_SWAP_HANDLE), PIN_NUMBER(GPIO_HOT_SWAP_HANDLE)))
+  sensor_t *p_sensor;
+  SDR_type_01h_t *sdr;
+  extern const SDR_type_01h_t SDR_AMC_12V;
+  /* Iterate through the SDR Table to find all the ucd90xxx entries */
+  for (p_sensor = sdr_head; (p_sensor != NULL) || (p_sensor->task_handle == NULL); p_sensor = p_sensor->next)
   {
-    return 0;
+    if (p_sensor->sdr == &SDR_AMC_12V)
+    {
+      sdr = (SDR_type_01h_t *)p_sensor->sdr;
+      if ((p_sensor->readout_value >= (sdr->lower_critical_thr)) && (p_sensor->readout_value <= (sdr->upper_critical_thr)))
+        return 1;
+      else
+        return 0;
+    }
   }
-  else
-  {
-    return 1;
-  }
+  return 0;
 }
+
+uint8_t dcdc_check_pgood()
+{
+  sensor_t *p_sensor;
+  SDR_type_01h_t *sdr;
+  extern const SDR_type_01h_t SDR_AMC_IO_3V3;
+  /* Iterate through the SDR Table to find all the ucd90xxx entries */
+  for (p_sensor = sdr_head; (p_sensor != NULL) || (p_sensor->task_handle == NULL); p_sensor = p_sensor->next)
+  {
+    if (p_sensor->sdr == &SDR_AMC_IO_3V3)
+    {
+      sdr = (SDR_type_01h_t *)p_sensor->sdr;
+      if ((p_sensor->readout_value >= (sdr->lower_critical_thr)) && (p_sensor->readout_value <= (sdr->upper_critical_thr)))
+        return 1;
+      else
+        return 0;
+    }
+  }
+  return 0;
+}
+
+#endif
 
 #ifdef MODULE_VIO_TPL0102
 
 // Vout = 0.6V * (60.4k/(30.1k + dac * 100k / 256)+1)
-#define CONV_VLOT(voltage) (uint8_t)((60.4 / ((voltage) / 0.6 - 1) - 30.2) * 256 / 100)
-#define CONV_DAC(dac) (float)(0.6 * (60.4 / (30.2 + (dac) * 100 / 256) + 1))
+#define AMC_CONV_VLOT(voltage) (uint8_t)((60.4 / ((voltage) / 0.6 - 1) - 30.2) * 256 / 100)
+#define AMC_CONV_DAC(dac) (float)(0.6 * (60.4 / (30.2 + (dac) * 100 / 256) + 1))
 
-void tpl0102_set_voltage(uint8_t chn, float voltage, bool non_volatile)
+void tpl0102_set_amc_voltage(uint8_t chn, float voltage, bool use_eeprom)
 {
   uint8_t dac;
   if (voltage > 1.8)
@@ -171,17 +172,17 @@ void tpl0102_set_voltage(uint8_t chn, float voltage, bool non_volatile)
   if (voltage < 0.9)
     voltage = 0.9;
 
-  dac = CONV_VLOT(voltage);
+  dac = AMC_CONV_VLOT(voltage);
 #ifdef DEBUG
   printf("Set FMC%d DAC=%d\n", chn, dac);
 #endif
-  if (non_volatile)
+  if (use_eeprom)
     tpl0102_set_non_volatile_val(chn, dac);
   else
     tpl0102_set_val(chn, dac);
 }
 
-float tpl0102_get_voltage(uint8_t chn)
+float tpl0102_get_amc_voltage(uint8_t chn)
 {
   uint8_t val;
   float voltage;
@@ -190,7 +191,7 @@ float tpl0102_get_voltage(uint8_t chn)
 #ifdef DEBUG
   printf("Get DAC=%d\n", val);
 #endif
-  voltage = CONV_DAC(val);
+  voltage = AMC_CONV_DAC(val);
   return voltage;
 }
 
@@ -198,7 +199,7 @@ float tpl0102_get_voltage(uint8_t chn)
 
 #ifdef MODULE_ADN4604
 
-mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t* si5345_revd_registers_ptr)
+mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t *si5345_revd_registers_ptr)
 {
   uint8_t page_curr, page_prev = 0xFF;
   uint32_t i;
@@ -207,13 +208,14 @@ mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t* si5345_
   uint8_t err_cnt = 0;
   uint8_t tx_data[2];
 
-	for(i = 0; i < SI5345_REVD_REG_CONFIG_NUM_REGS; i++)
-	{
-    if(i == 3) vTaskDelay(pdMS_TO_TICKS(300));
-		page_curr = (uint8_t)((si5345_revd_registers_ptr[i].address>>8)&0xFF);
+  for (i = 0; i < SI5345_REVD_REG_CONFIG_NUM_REGS; i++)
+  {
+    if (i == 3)
+      vTaskDelay(pdMS_TO_TICKS(300));
+    page_curr = (uint8_t)((si5345_revd_registers_ptr[i].address >> 8) & 0xFF);
     tx_data[0] = 0x1;
     tx_data[1] = page_curr;
-		if (page_curr != page_prev)
+    if (page_curr != page_prev)
     {
       err_cnt = 0;
       i2c_written = 0;
@@ -224,16 +226,18 @@ mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t* si5345_
           i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
           i2c_give(i2c_interface);
         }
-        if (i2c_written!=2)
+        if (i2c_written != 2)
         {
           err_cnt++;
-          if(err_cnt == 0xF) return MMC_IO_ERR;
-          else vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+          if (err_cnt == 0xF)
+            return MMC_IO_ERR;
+          else
+            vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
         }
         // else printf("PLL write 0x%x to 0x%x\n", tx_data[1], tx_data[0]);
       }
     }
-    tx_data[0] = (uint8_t)(si5345_revd_registers_ptr[i].address&0xFF);
+    tx_data[0] = (uint8_t)(si5345_revd_registers_ptr[i].address & 0xFF);
     tx_data[1] = si5345_revd_registers_ptr[i].value;
     err_cnt = 0;
     i2c_written = 0;
@@ -244,18 +248,40 @@ mmc_err pll_configuration(uint8_t chip_id, const si5345_revd_register_t* si5345_
         i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
         i2c_give(i2c_interface);
       }
-      if (i2c_written!=2)
+      if (i2c_written != 2)
       {
         err_cnt++;
-        if(err_cnt == 0xF) return MMC_IO_ERR;
-        else vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+        if (err_cnt == 0xF)
+          return MMC_IO_ERR;
+        else
+          vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
       }
       // else printf("PLL write 0x%x to 0x%x\n", tx_data[1], tx_data[0]);
     }
     page_prev = page_curr;
-	}
+  }
   return MMC_OK;
 }
+
+// Inputs for ADN4604
+#define ADN4604_IN_AMC_TX_P17 0
+#define ADN4604_IN_AMC_RX_P17 1
+#define ADN4604_IN_TCLKD 2
+#define ADN4604_IN_TCLKC 3
+#define ADN4604_IN_TCLKA 4
+#define ADN4604_IN_TCLKB 5
+#define ADN4604_IN_FCLKA 6
+#define ADN4604_IN_FPGA_CLK_OUT 7
+#define ADN4604_IN_PLL1_OUT 8
+#define ADN4604_IN_PLL0_OUT 9
+#define ADN4604_IN_FMC1_CLK_M2C 10
+#define ADN4604_IN_FMC1_CLK_BIDIR 11
+#define ADN4604_IN_FMC0_CLK_M2C 12
+#define ADN4604_IN_FMC0_CLK_BIDIR 13
+#define ADN4604_IN_LEMO_CLK 14
+#define ADN4604_IN_RTM2AMC_CLK 15
+
+#define ADN4604_OUTPUT_EN 0x80
 
 mmc_err clock_configuration(const uint8_t clk_cfg[16])
 {
@@ -280,15 +306,6 @@ mmc_err clock_configuration(const uint8_t clk_cfg[16])
       ((clk_cfg[13] & 0x80) >> 7) << 13 |
       ((clk_cfg[14] & 0x80) >> 7) << 14 |
       ((clk_cfg[15] & 0x80) >> 7) << 15};
-
-  /* Disable UPDATE' pin by pulling it GPIO_LEVEL_HIGH */
-  // gpio_set_pin_state(PIN_PORT(GPIO_ADN_UPDATE), PIN_NUMBER(GPIO_ADN_UPDATE), GPIO_LEVEL_HIGH);
-
-  /* There's a delay circuit in the Reset pin of the clock switch, we must wait until it clears out */
-  // while (gpio_read_pin(PIN_PORT(GPIO_ADN_RESETN), PIN_NUMBER(GPIO_ADN_RESETN)) == 0)
-  // {
-  //   vTaskDelay(50);
-  // }
 
   /* Configure the interconnects*/
   con.out0 = clk_cfg[0] & 0x0F;
@@ -376,45 +393,19 @@ void payload_init(void)
   mcp23016_write_pin(ext_gpios[EXT_GPIO_EN_RTM_MP].port_num, ext_gpios[EXT_GPIO_EN_RTM_MP].pin_num, true);
 #endif
 
-#ifdef MODULE_ADC
-  ADC_CLOCK_SETUP_T ADCSetup;
-  Chip_ADC_Init(LPC_ADC, &ADCSetup);
-  Chip_ADC_EnableChannel(LPC_ADC, ADC_CH1, ENABLE);
-#endif
-
 #ifdef MODULE_VIO_TPL0102
   /* Configure the PVADJ DAC */
   tpl0102_init();
-  tpl0102_set_voltage(0, 1.8, false);
-  tpl0102_set_voltage(1, 1.8, false);
+  tpl0102_set_amc_voltage(0, 1.8, false);
+  tpl0102_set_amc_voltage(1, 1.8, false);
 #endif
 }
-
-// Inputs for ADN4604
-#define ADN4604_IN_AMC_TX_P17 0
-#define ADN4604_IN_AMC_RX_P17 1
-#define ADN4604_IN_TCLKD 2
-#define ADN4604_IN_TCLKC 3
-#define ADN4604_IN_TCLKA 4
-#define ADN4604_IN_TCLKB 5
-#define ADN4604_IN_FCLKA 6
-#define ADN4604_IN_FPGA_CLK_OUT 7
-#define ADN4604_IN_PLL1_OUT 8
-#define ADN4604_IN_PLL0_OUT 9
-#define ADN4604_IN_FMC1_CLK_M2C 10
-#define ADN4604_IN_FMC1_CLK_BIDIR 11
-#define ADN4604_IN_FMC0_CLK_M2C 12
-#define ADN4604_IN_FMC0_CLK_BIDIR 13
-#define ADN4604_IN_LEMO_CLK 14
-#define ADN4604_IN_RTM2AMC_CLK 15
-
-#define CLK_EN 0x80
 
 void vTaskPayload(void *pvParameters)
 {
   uint8_t clock_config[16];
   clock_config[0] = ADN4604_IN_PLL0_OUT;
-  clock_config[1] = ADN4604_IN_PLL0_OUT | CLK_EN;
+  clock_config[1] = ADN4604_IN_PLL0_OUT | ADN4604_OUTPUT_EN;
   clock_config[2] = ADN4604_IN_PLL0_OUT;
   clock_config[3] = ADN4604_IN_PLL0_OUT;
   clock_config[4] = ADN4604_IN_PLL0_OUT;
@@ -440,7 +431,10 @@ void vTaskPayload(void *pvParameters)
   /* Payload DCDCs good flag */
   uint8_t DCDC_good = 0;
 
-  /* FPGA program done flag */
+/* FPGA program done flag */
+#define FPGA_PROM_TIMEOUT 60000 // ms
+#define FPGA_PROM_MAX_CNT (FPGA_PROM_TIMEOUT / PAYLOAD_BASE_DELAY)
+  uint8_t FPGA_prom_timer = 0;
   uint8_t FPGA_prom_done = 0;
 
   uint8_t QUIESCED_req = 0;
@@ -456,48 +450,10 @@ void vTaskPayload(void *pvParameters)
   // eeprom_24xx512_read(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
 #endif
 
-  if (get_ipmb_addr() == IPMB_ADDR_DISCONNECTED) // standalone mode
-  {
-    while (!DCDC_good)
-    {
-      DCDC_good = gpio_read_pin(PIN_PORT(GPIO_TP), PIN_NUMBER(GPIO_TP));
-    }
-#ifdef MODULE_ADN4604
-    /* Recover clock switch configuration saved in EEPROM */
-    // eeprom_24xx512_read(CHIP_ID_RTC_EEPROM, 0x0, clock_config, 16, 10);
-    if (adn4604_reset() == MMC_OK)
-      printf("ADN4604 reset OK\n");
-    else
-      printf("ADN4604 reset ERROR\n");
-    if (clock_configuration(clock_config) == MMC_OK)
-      printf("ADN4604 config OK\n");
-    else
-      printf("ADN4604 config ERROR\n");
-    if(pll_configuration(CHIP_ID_SI5345_0, si5345_revd_registers_0) == MMC_OK)
-      printf("PLL0 config OK\n");
-    else
-      printf("PLL0 config ERROR\n");
-    if(pll_configuration(CHIP_ID_SI5345_1, si5345_revd_registers_1) == MMC_OK)
-      printf("PLL1 config OK\n");
-    else
-      printf("PLL1 config ERROR\n");
-#endif
-    while (!FPGA_prom_done)
-    {
-      FPGA_prom_done = gpio_read_pin(PIN_PORT(GPIO_FPGA_DONE), PIN_NUMBER(GPIO_FPGA_DONE));
-    }
-    // reset FPGA
-    fpga_soft_reset();
-
-    for (;;)
-    {
-      vTaskDelayUntil(&xLastWakeTime, PAYLOAD_BASE_DELAY);
-    }
-  }
-
   for (;;)
   {
     new_state = state;
+    // printf("Payload status = %d\n", state);
 
     current_evt = xEventGroupGetBits(amc_payload_evt);
 
@@ -519,11 +475,11 @@ void vTaskPayload(void *pvParameters)
           printf("ADN4604 config OK\n");
         else
           printf("ADN4604 config ERROR\n");
-        if(pll_configuration(CHIP_ID_SI5345_0, si5345_revd_registers_0) == MMC_OK)
+        if (pll_configuration(CHIP_ID_SI5345_0, si5345_revd_registers_0) == MMC_OK)
           printf("PLL0 config OK\n");
         else
           printf("PLL0 config ERROR\n");
-        if(pll_configuration(CHIP_ID_SI5345_1, si5345_revd_registers_1) == MMC_OK)
+        if (pll_configuration(CHIP_ID_SI5345_1, si5345_revd_registers_1) == MMC_OK)
           printf("PLL1 config OK\n");
         else
           printf("PLL1 config ERROR\n");
@@ -554,15 +510,24 @@ void vTaskPayload(void *pvParameters)
        * PAYLOAD_MESSAGE_QUIESCE message, the QUIESCED_req flag
        * should be '0'
        */
-      // if (state == PAYLOAD_QUIESCED)
-      //   QUIESCED_req = 0;
-      // else
-      QUIESCED_req = 1;
+      if (state == PAYLOAD_QUIESCED)
+        QUIESCED_req = 0;
+      else
+        QUIESCED_req = 1;
+#ifdef DEBUG
+      printf("QUIESCED received\n");
+#endif
       xEventGroupClearBits(amc_payload_evt, PAYLOAD_MESSAGE_QUIESCE);
     }
 
+#ifdef MODULE_UCD90XXX
     PP_good = payload_check_pgood();
-    DCDC_good = gpio_read_pin(PIN_PORT(GPIO_TP), PIN_NUMBER(GPIO_TP));
+    // DCDC_good = ucd_get_gpio(CHIP_ID_PMBUS_0, UCD_GPIO_PG);
+    DCDC_good = dcdc_check_pgood();
+#else
+    PP_good = 1;
+    DCDC_good = 1;
+#endif
 
     switch (state)
     {
@@ -570,35 +535,27 @@ void vTaskPayload(void *pvParameters)
     case PAYLOAD_NO_POWER:
       if (PP_good)
       {
+        /* Turn DCDC converters on */
+        setDC_DC_ConvertersON(true);
+        /* Clear hotswap sensor backend power failure bits */
+        hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_BACKEND_PWR_SHUTDOWN_MASK);
+        hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_BACKEND_PWR_FAILURE_MASK);
         new_state = PAYLOAD_POWER_GOOD_WAIT;
       }
       break;
 
     case PAYLOAD_POWER_GOOD_WAIT:
-      /* Turn DCDC converters on */
-      setDC_DC_ConvertersON(true);
-
-      /* Clear hotswap sensor backend power failure bits */
-      hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_BACKEND_PWR_SHUTDOWN_MASK);
-      hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_BACKEND_PWR_FAILURE_MASK);
-
-#ifdef DEBUG
-      printf("DCDC_good=%d\n", DCDC_good);
-#endif
       if (QUIESCED_req || (PP_good == 0))
-      {
         new_state = PAYLOAD_SWITCHING_OFF;
-      }
       else if (DCDC_good == 1)
       {
-        new_state = PAYLOAD_STATE_FPGA_SETUP;
+        // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_HIGH);
+        // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_HIGH);
+        new_state = PAYLOAD_STATE_CLK_SETUP;
       }
       break;
 
-    case PAYLOAD_STATE_FPGA_SETUP:
-      // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_HIGH);
-      // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_HIGH);
-
+    case PAYLOAD_STATE_CLK_SETUP:
 #ifdef MODULE_ADN4604
       /* Configure clock switch */
       if (adn4604_reset() == MMC_OK)
@@ -606,44 +563,65 @@ void vTaskPayload(void *pvParameters)
         if (clock_configuration(clock_config) == MMC_OK)
         {
           printf("ADN4604 config OK\n");
-          if(pll_configuration(CHIP_ID_SI5345_0, si5345_revd_registers_0) == MMC_OK)
+          if (pll_configuration(CHIP_ID_SI5345_0, si5345_revd_registers_0) == MMC_OK)
           {
             printf("PLL0 config OK\n");
-            if(pll_configuration(CHIP_ID_SI5345_1, si5345_revd_registers_1) == MMC_OK)
+            if (pll_configuration(CHIP_ID_SI5345_1, si5345_revd_registers_1) == MMC_OK)
             {
               printf("PLL1 config OK\n");
-              // Only change the state if the clock switch configuration succeeds
-              new_state = PAYLOAD_FPGA_ON;
+              // Only change the state if the clock configuration succeeds
+              new_state = PAYLOAD_STATE_FPGA_SETUP;
             }
-            else printf("PLL1 config ERROR\n");
+            else
+              printf("PLL1 config ERROR\n");
           }
-          else printf("PLL0 config ERROR\n");
+          else
+            printf("PLL0 config ERROR\n");
         }
-        else printf("ADN4604 config ERROR\n");
+        else
+          printf("ADN4604 config ERROR\n");
       }
-      // else printf("ADN4604 reset ERROR\n");
+      else
+        printf("ADN4604 reset ERROR\n");
 #else
-      new_state = PAYLOAD_FPGA_ON;
+      new_state = PAYLOAD_STATE_FPGA_SETUP;
 #endif
+      break;
+
+    case PAYLOAD_STATE_FPGA_SETUP:
+      FPGA_prom_done = gpio_read_pin(PIN_PORT(GPIO_FPGA_DONE), PIN_NUMBER(GPIO_FPGA_DONE));
+      if (FPGA_prom_done)
+      {
+        // reset FPGA
+        fpga_soft_reset();
+        new_state = PAYLOAD_FPGA_ON;
+      }
+      else
+      {
+        FPGA_prom_timer++;
+        if (FPGA_prom_timer == FPGA_PROM_MAX_CNT)
+        {
+          printf("FPGA program timeout\n");
+          FPGA_prom_timer = 0;
+          new_state = PAYLOAD_FPGA_ON;
+        }
+      }
       break;
 
     case PAYLOAD_FPGA_ON:
       if (QUIESCED_req == 1 || PP_good == 0 || DCDC_good == 0)
       {
+        // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_LOW);
+        // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_LOW);
+        setDC_DC_ConvertersON(false);
         new_state = PAYLOAD_SWITCHING_OFF;
       }
       break;
 
     case PAYLOAD_SWITCHING_OFF:
-      // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_LOW);
-      // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_LOW);
-
-      setDC_DC_ConvertersON(false);
-
       /* Respond to quiesce event if any */
       if (QUIESCED_req)
       {
-        vTaskDelay(pdMS_TO_TICKS(1000));
         hotswap_set_mask_bit(HOTSWAP_AMC, HOTSWAP_QUIESCED_MASK);
         hotswap_send_event(hotswap_amc_sensor, HOTSWAP_STATE_QUIESCED);
         hotswap_clear_mask_bit(HOTSWAP_AMC, HOTSWAP_QUIESCED_MASK);
@@ -654,7 +632,7 @@ void vTaskPayload(void *pvParameters)
 
     case PAYLOAD_QUIESCED:
       /* Wait until power goes down to restart the cycle */
-      if (PP_good == 0 && DCDC_good == 0)
+      if (PP_good == 0)
       {
         new_state = PAYLOAD_NO_POWER;
       }
@@ -671,7 +649,7 @@ void vTaskPayload(void *pvParameters)
     }
 
     state = new_state;
-    vTaskDelayUntil(&xLastWakeTime, PAYLOAD_BASE_DELAY);
+    vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(PAYLOAD_BASE_DELAY));
   }
 }
 

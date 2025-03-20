@@ -19,7 +19,7 @@ set(TARGET_MODULES
   "VIO_TPL0102"
   "ADN4604"
   # "CLOCK_CONFIG"
-  # "UCD90XXX"
+  "UCD90XXX"
   # "MCP23016"
   # "ADC"
   # "HPM"
