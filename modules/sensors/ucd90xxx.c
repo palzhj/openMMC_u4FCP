@@ -83,7 +83,7 @@
 
 #define UCD_UPDATE_RATE 5000
 
-static ucd_data_t ucd_data[UCD_CH_COUNT];
+static ucd_data_t ucd_data[SDR_CH_COUNT];
 TaskHandle_t vTaskUCD_Handle;
 
 /**
@@ -113,7 +113,7 @@ void vTaskUCD(void *Parameters)
   for (;;)
   {
     /* Read registers from the UCD90xxx */
-    for (ch_num = 0; ch_num < UCD_CH_COUNT; ch_num++)
+    for (ch_num = 0; ch_num < SDR_CH_COUNT; ch_num++)
     {
       /* Skip if the chip ID is not set */
       if (!ucd_data[ch_num].chipid)
@@ -652,7 +652,7 @@ void ucd_init(void)
     }
 
     /* Assign the chip ID and sensor pointer to the ucd_data array */
-    for (ch_num = 0; ch_num < UCD_CH_COUNT; ch_num++)
+    for (ch_num = 0; ch_num < SDR_CH_COUNT; ch_num++)
     {
       if (!(ucd_data[ch_num].chipid))
       {

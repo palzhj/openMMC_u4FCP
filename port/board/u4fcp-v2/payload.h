@@ -103,6 +103,8 @@ extern enum {
   UCD_CH_COUNT
 } UCD_AMC;
 
+#define SDR_CH_COUNT (UCD_CH_COUNT * 2)
+
 // Input
 #define UCD_GPIO_PG               0     // MAR1
 

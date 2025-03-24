@@ -404,22 +404,22 @@ void payload_init(void)
 void vTaskPayload(void *pvParameters)
 {
   uint8_t clock_config[16];
-  clock_config[0] = ADN4604_IN_PLL0_OUT;
-  clock_config[1] = ADN4604_IN_PLL0_OUT | ADN4604_OUTPUT_EN;
-  clock_config[2] = ADN4604_IN_PLL0_OUT;
-  clock_config[3] = ADN4604_IN_PLL0_OUT;
-  clock_config[4] = ADN4604_IN_PLL0_OUT;
-  clock_config[5] = ADN4604_IN_PLL0_OUT;
-  clock_config[6] = ADN4604_IN_PLL0_OUT;
-  clock_config[7] = ADN4604_IN_PLL0_OUT;
-  clock_config[8] = ADN4604_IN_PLL0_OUT;
-  clock_config[9] = ADN4604_IN_PLL0_OUT;
-  clock_config[10] = ADN4604_IN_PLL0_OUT;
-  clock_config[11] = ADN4604_IN_PLL0_OUT;
-  clock_config[12] = ADN4604_IN_PLL0_OUT;
-  clock_config[13] = ADN4604_IN_PLL0_OUT;
-  clock_config[14] = ADN4604_IN_PLL0_OUT;
-  clock_config[15] = ADN4604_IN_PLL0_OUT;
+  clock_config[0] = ADN4604_IN_PLL1_OUT;
+  clock_config[1] = ADN4604_IN_PLL1_OUT | ADN4604_OUTPUT_EN;
+  clock_config[2] = ADN4604_IN_PLL1_OUT;
+  clock_config[3] = ADN4604_IN_PLL1_OUT;
+  clock_config[4] = ADN4604_IN_PLL1_OUT;
+  clock_config[5] = ADN4604_IN_PLL1_OUT;
+  clock_config[6] = ADN4604_IN_PLL1_OUT;
+  clock_config[7] = ADN4604_IN_PLL1_OUT;
+  clock_config[8] = ADN4604_IN_PLL1_OUT;
+  clock_config[9] = ADN4604_IN_PLL1_OUT;
+  clock_config[10] = ADN4604_IN_PLL1_OUT;
+  clock_config[11] = ADN4604_IN_PLL1_OUT;
+  clock_config[12] = ADN4604_IN_PLL1_OUT;
+  clock_config[13] = ADN4604_IN_PLL1_OUT;
+  clock_config[14] = ADN4604_IN_PLL1_OUT;
+  clock_config[15] = ADN4604_IN_PLL1_OUT;
 
   uint8_t state = PAYLOAD_NO_POWER;
   /* Use arbitrary state value to force the first state update */
@@ -545,17 +545,19 @@ void vTaskPayload(void *pvParameters)
       break;
 
     case PAYLOAD_POWER_GOOD_WAIT:
-      if (QUIESCED_req || (PP_good == 0))
-        new_state = PAYLOAD_SWITCHING_OFF;
-      else if (DCDC_good == 1)
+      if (QUIESCED_req || (PP_good == 0)) new_state = PAYLOAD_SWITCHING_OFF;
+      if (DCDC_good == 1)
       {
         // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_HIGH);
         // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_HIGH);
+        // Turn on the green light
+        LEDUpdate( FRU_AMC, LED2, LEDMODE_OVERRIDE, LEDINIT_ON, 0, 0 );
         new_state = PAYLOAD_STATE_CLK_SETUP;
       }
       break;
 
     case PAYLOAD_STATE_CLK_SETUP:
+      if (QUIESCED_req || (PP_good == 0)) new_state = PAYLOAD_SWITCHING_OFF;
 #ifdef MODULE_ADN4604
       /* Configure clock switch */
       if (adn4604_reset() == MMC_OK)
@@ -589,6 +591,7 @@ void vTaskPayload(void *pvParameters)
       break;
 
     case PAYLOAD_STATE_FPGA_SETUP:
+      if (QUIESCED_req || (PP_good == 0)) new_state = PAYLOAD_SWITCHING_OFF;
       FPGA_prom_done = gpio_read_pin(PIN_PORT(GPIO_FPGA_DONE), PIN_NUMBER(GPIO_FPGA_DONE));
       if (FPGA_prom_done)
       {
@@ -611,14 +614,16 @@ void vTaskPayload(void *pvParameters)
     case PAYLOAD_FPGA_ON:
       if (QUIESCED_req == 1 || PP_good == 0 || DCDC_good == 0)
       {
-        // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_LOW);
-        // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_LOW);
-        setDC_DC_ConvertersON(false);
         new_state = PAYLOAD_SWITCHING_OFF;
       }
       break;
 
     case PAYLOAD_SWITCHING_OFF:
+      // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_LOW);
+      // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_LOW);
+      setDC_DC_ConvertersON(false);
+      // Toggle the green light
+      LEDUpdate( FRU_AMC, LED2, LEDMODE_OVERRIDE, LEDINIT_ON, 5, 5 );
       /* Respond to quiesce event if any */
       if (QUIESCED_req)
       {

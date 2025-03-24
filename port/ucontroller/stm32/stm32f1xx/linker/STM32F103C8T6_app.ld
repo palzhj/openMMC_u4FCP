@@ -41,16 +41,16 @@ _Min_Stack_Size = 512;    /* required amount of stack */
 /* Specify the memory areas */
 MEMORY
 {
-  FLASH (rx)      : ORIGIN = 0x08002000, LENGTH = 56K
+  FLASH (rx)      : ORIGIN = 0x08002000, LENGTH = 60K
   RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 20K
 }
 
 __BootFlash_start     = 0x08000000;   /* Bootloader start address (vector table) */
 __BootFlash_end       = 0x08001FFF;   /* Bootloader end address (last byte) */
 __AppFlash_start      = 0x08002000;   /* Application start address (vector table) */
-__AppFlash_end        = 0x08006FFF;   /* 28K Application end address (last byte) */
-__FWUpdateFlash_start = 0x08007000;   /* Firmware update region start address */
-__FWUpdateFlash_end   = 0x0800FFFF;   /* 28K Firmware update region end address (last byte) */
+__AppFlash_end        = 0x08010FFF;   /* 28K Application end address (last byte) */
+__FWUpdateFlash_start = 0x08011000;   /* Firmware update region start address */
+__FWUpdateFlash_end   = 0x0801FFFF;   /* 28K Firmware update region end address (last byte) */
 __FWInfo_addr         = __FWUpdateFlash_end - 255; /* Last 256 bytes of flash reserved to the fw_info struct */
 
 /* Define output sections */
