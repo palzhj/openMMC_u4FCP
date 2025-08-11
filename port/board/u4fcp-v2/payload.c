@@ -115,6 +115,80 @@ static void fpga_soft_reset(void)
   LEDUpdate(FRU_AMC, LED1, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0);
 }
 
+// TCA9554
+#define TCA9554_INPUT_REG    0
+#define TCA9554_OUTPUT_REG   1
+#define TCA9554_POLARITY_REG 2
+#define TCA9554_CFG_REG      3
+
+# define JTAG_RTM_EN_B  0x80
+# define JTAG_FMC1_EN_B 0x40
+# define JTAG_FMC0_EN_B 0x20
+# define JTAG_AMC_EN    0x10
+
+mmc_err config_jtag(void)
+{
+  bool standalone_mode = false;
+  uint8_t i2c_addr, i2c_interface;
+  uint8_t i2c_written = 0;
+  uint8_t err_cnt = 0;
+  uint8_t tx_data[2];
+
+  if (get_ipmb_addr() == IPMB_ADDR_DISCONNECTED) {
+      standalone_mode = true;
+  }
+
+  if(!standalone_mode){
+    // Enable AMC JTAG
+    // set output: AMC enabled, FMC and RTM disabled
+    i2c_written = 0;
+    while (i2c_written != 2)
+    {
+      tx_data[0] = TCA9554_OUTPUT_REG;
+      tx_data[1] = JTAG_AMC_EN | JTAG_FMC0_EN_B | JTAG_FMC1_EN_B | JTAG_RTM_EN_B;
+      if (i2c_take_by_chipid(CHIP_ID_TCA9554_JTAG_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+      {
+        i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
+        i2c_give(i2c_interface);
+      }
+      if (i2c_written != 2)
+      {
+        err_cnt++;
+        if (err_cnt == 0xF)
+          return MMC_IO_ERR;
+        else
+          vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+      }
+    }
+
+    // set config: 0 = output
+    i2c_written = 0;
+    while (i2c_written != 2)
+    {
+      tx_data[0] = TCA9554_CFG_REG;
+      tx_data[1] = (uint8_t)(~(JTAG_AMC_EN | JTAG_FMC0_EN_B | JTAG_FMC1_EN_B | JTAG_RTM_EN_B));
+      if (i2c_take_by_chipid(CHIP_ID_TCA9554_JTAG_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+      {
+       i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
+        i2c_give(i2c_interface);
+      }
+      if (i2c_written != 2)
+      {
+        err_cnt++;
+        if (err_cnt == 0xF)
+          return MMC_IO_ERR;
+        else
+          vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+      }
+    }
+    printf("AMC JTAG enabled\n");
+  }
+  else
+    printf("AMC JTAG disabled\n");
+  return MMC_OK;
+}
+
+
 #ifdef MODULE_UCD90XXX
 uint8_t payload_check_pgood()
 {
@@ -385,6 +459,7 @@ TaskHandle_t vTaskPayload_Handle;
 
 void payload_init(void)
 {
+  /* Set standalone mode if the module is disconnected from a create*/
   xTaskCreate(vTaskPayload, "Payload", 256, NULL, tskPAYLOAD_PRIORITY, &vTaskPayload_Handle);
 
   amc_payload_evt = xEventGroupCreate();
@@ -552,6 +627,8 @@ void vTaskPayload(void *pvParameters)
         // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_HIGH);
         // Turn on the green light
         LEDUpdate( FRU_AMC, LED2, LEDMODE_OVERRIDE, LEDINIT_ON, 0, 0 );
+        if (config_jtag() != MMC_OK)
+          printf("JTAG config ERROR\n");
         new_state = PAYLOAD_STATE_CLK_SETUP;
       }
       break;
@@ -597,6 +674,8 @@ void vTaskPayload(void *pvParameters)
       {
         // reset FPGA
         fpga_soft_reset();
+        // if (config_jtag() != MMC_OK)
+        //   printf("JTAG config ERROR\n");
         new_state = PAYLOAD_FPGA_ON;
       }
       else
