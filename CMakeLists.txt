@@ -106,6 +106,7 @@ target_link_libraries(${CMAKE_PROJECT_NAME} FreeRTOS gcc c ${PROJ_LIBS})
 ##Generate binary file
 add_custom_command(TARGET ${CMAKE_PROJECT_NAME} POST_BUILD
   COMMAND ${CMAKE_OBJCOPY} -O binary ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.bin
+  COMMAND ${CMAKE_OBJCOPY} -O srec ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.srec
   COMMAND ${CMAKE_SIZE} ${CMAKE_PROJECT_NAME}.elf
   WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
   COMMENT "Converting the ELF output to a binary file"

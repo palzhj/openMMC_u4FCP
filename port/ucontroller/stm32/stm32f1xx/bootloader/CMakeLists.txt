@@ -37,6 +37,7 @@ target_include_directories(newboot PUBLIC
 # message(STATUS "STM32_BOOT_INC: ${UCONTROLLER_HDRS}")
 add_custom_command(TARGET newboot POST_BUILD
   COMMAND ${CMAKE_OBJCOPY} -O binary newboot.elf newboot.bin
+  COMMAND ${CMAKE_OBJCOPY} -O srec newboot.elf newboot.srec
   COMMAND ${CMAKE_SIZE} newboot.elf
   WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
   COMMENT "Generate a raw binary image of the bootloader"
