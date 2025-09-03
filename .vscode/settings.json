@@ -17,7 +17,9 @@
         "tpl0102.h": "c",
         "system_error": "c",
         "sensors.h": "c",
-        "ucd90xxx.h": "c"
+        "ucd90xxx.h": "c",
+        "ipmi.h": "c",
+        "adn4604.h": "c"
     },
     "cortex-debug.variableUseNaturalFormat": true
 }

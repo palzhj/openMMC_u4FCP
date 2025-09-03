@@ -21,6 +21,7 @@
 
 /* Project Includes */
 #include "port.h"
+#include "ipmb.h"
 
 void board_init()
 {
@@ -45,8 +46,26 @@ void board_init()
 #endif
 }
 
+extern uint8_t ipmb_addr;
+
 void board_config()
 {
   // // Enable interrupt
   // __set_PRIMASK(0);
+
+  uint32_t delay;
+  uint8_t i, id;
+  if (ipmb_addr == IPMB_ADDR_DISCONNECTED)
+    id = 0;
+  else
+    id = (ipmb_addr - 0x70) >> 1;
+  for (i = 0; i < id; i++)
+  {
+    // printf("%d\n", i);
+    for (delay = 0; delay < 1000000; delay++)
+    {
+      asm("NOP");
+    }
+  }
+
 }

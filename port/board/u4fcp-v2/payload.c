@@ -362,6 +362,13 @@ mmc_err clock_configuration(const uint8_t clk_cfg[16])
   adn_connect_map_t con;
   mmc_err error;
 
+  /* Disable input and output termination*/
+  error = adn4604_termination_ctl(0xF);
+  if (error != MMC_OK)
+  {
+    return error;
+  }
+
   /* Translate the configuration to enable or disable the outputs */
   uint16_t out_enable_flag = {
       ((clk_cfg[0] & 0x80) >> 7) << 0 |
