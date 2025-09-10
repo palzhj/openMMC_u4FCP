@@ -46,14 +46,14 @@ typedef struct {
     sensor_t * sensor;
 } ucd_data_t;
 
-void ucd_read_voltages( ucd_data_t * data );
-void ucd_read_current( ucd_data_t * data );
-void ucd_read_temperature( ucd_data_t * data );
+// void ucd_read_voltages( ucd_data_t * data );
+// void ucd_read_current( ucd_data_t * data );
+// void ucd_read_temperature( ucd_data_t * data );
 
-// uint8_t ucd_read_id(uint8_t chipid, uint8_t *str);
-
-uint8_t ucd_get_gpio(uint8_t chipid, uint8_t pin_number);
-// uint8_t ucd_set_gpio(uint8_t chipid, uint8_t pin_number, uint8_t status);
+void ucd_read_id(ucd_data_t * data, uint8_t *str);
+uint8_t ucd_get_gpio(ucd_data_t * data, uint8_t pin_number);
+void ucd_set_gpio(ucd_data_t * data, uint8_t pin_number, uint8_t status);
+void ucd_set_power(ucd_data_t * data, uint8_t page, uint8_t state);
 
 void ucd_init( void );
 void vTaskUCD( void* Parameters );

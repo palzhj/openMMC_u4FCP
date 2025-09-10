@@ -19,7 +19,20 @@
         "sensors.h": "c",
         "ucd90xxx.h": "c",
         "ipmi.h": "c",
-        "adn4604.h": "c"
+        "adn4604.h": "c",
+        "sdr.h": "c",
+        "bit": "c",
+        "compare": "c",
+        "cstddef": "c",
+        "string": "c",
+        "optional": "c",
+        "limits": "c",
+        "memory": "c",
+        "new": "c",
+        "ranges": "c",
+        "functional": "c",
+        "array": "c",
+        "string_view": "c"
     },
     "cortex-debug.variableUseNaturalFormat": true
 }

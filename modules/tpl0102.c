@@ -60,13 +60,28 @@ void tpl0102_set_val(uint8_t chn, uint8_t val)
 {
   uint8_t i2c_addr, i2c_interface;
   uint8_t tx_data[2];
-  uint8_t i2c_written = 0;
+  uint8_t i2c_written;
+
+  // Enable Volatile Registers
+  tx_data[0] = REG_ACR;
+  tx_data[1] = ACR_VOL | ACR_ENABLE;
+  i2c_written = 0;
+  while (i2c_written!=2)
+  {
+    if (i2c_take_by_chipid(CHIP_ID_TPL0102_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+    {
+      i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
+      i2c_give(i2c_interface);
+      if (i2c_written==0) vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+    }
+  }
+
   if (chn == 0)
     tx_data[0] = REG_IVRA_WRA;
   else
     tx_data[0] = REG_IVRB_WRB;
   tx_data[1] = val;
-
+  i2c_written = 0;
   while (i2c_written != 2)
   {
     if (i2c_take_by_chipid(CHIP_ID_TPL0102_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
@@ -81,8 +96,29 @@ void tpl0102_set_val(uint8_t chn, uint8_t val)
 void tpl0102_set_non_volatile_val(uint8_t chn, uint8_t val)
 {
   uint8_t i2c_addr, i2c_interface;
-  uint8_t i2c_written = 0;
-  uint8_t tx_data[2] = {REG_ACR, ACR_ENABLE};  // Disable Volatile Registers
+  uint8_t tx_data[2];
+  uint8_t i2c_written;
+
+  // Disable Volatile Registers
+  tx_data[0] = REG_ACR;
+  tx_data[1] = ACR_ENABLE;
+  i2c_written = 0;
+  while (i2c_written!=2)
+  {
+    if (i2c_take_by_chipid(CHIP_ID_TPL0102_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+    {
+      i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
+      i2c_give(i2c_interface);
+      if (i2c_written==0) vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+    }
+  }
+
+  if (chn == 0)
+    tx_data[0] = REG_IVRA_WRA;
+  else
+    tx_data[0] = REG_IVRB_WRB;
+  tx_data[1] = val;
+  i2c_written = 0;
   while (i2c_written != 2)
   {
     if (i2c_take_by_chipid(CHIP_ID_TPL0102_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
@@ -93,20 +129,23 @@ void tpl0102_set_non_volatile_val(uint8_t chn, uint8_t val)
     if (i2c_written==0) vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
   }
 
-  if (chn == 0)
-    tx_data[0] = REG_IVRA_WRA;
-  else
-    tx_data[0] = REG_IVRB_WRB;
-  tx_data[1] = val;
-  while (i2c_written != 2)
-  {
-    if (i2c_take_by_chipid(CHIP_ID_TPL0102_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+  // Wait for Non-volatile last write operation
+  tx_data[0] = REG_ACR;
+  tx_data[1] = ACR_WIP;
+  i2c_written = 0;
+	while (tx_data[1]&ACR_WIP)
+	{
+    vTaskDelay(pdMS_TO_TICKS(30)); // Non-volatile write cycle time: 20 ms
+    while (i2c_written!=1)
     {
-      i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
-      i2c_give(i2c_interface);
+      if (i2c_take_by_chipid(CHIP_ID_TPL0102_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+      {
+        i2c_written = xI2CMasterWriteRead(i2c_interface, i2c_addr, &tx_data[0], 1, &tx_data[1], 1);
+        i2c_give(i2c_interface);
+        if (i2c_written==0) vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+      }
     }
-    if (i2c_written==0) vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
-  }
+	}
 
   tx_data[0] = REG_ACR;
   tx_data[1] = ACR_VOL | ACR_ENABLE; // Enable Volatile Registers

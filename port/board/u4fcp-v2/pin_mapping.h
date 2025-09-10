@@ -87,7 +87,7 @@ void gpio_init(void);
 
 // RTM
 #define GPIO_RTM_PS_B PIN_DEF(PORT0, 8, 0, GPIO_DIR_INPUT)
-#define GPIO_RTM_RES PIN_DEF(PORT0, 2, 0, GPIO_DIR_INPUT)
+#define GPIO_RTM_RES PIN_DEF(PORT0, 2, 0, GPIO_DIR_OUTPUT)
 #define GPIO_RTM_INT_B PIN_DEF(PORT0, 3, 0, GPIO_DIR_INPUT)
 
 // Test Point

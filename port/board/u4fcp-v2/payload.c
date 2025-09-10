@@ -53,9 +53,9 @@
 #endif
 #ifdef MODULE_UCD90XXX
 #include "ucd90xxx.h"
+extern ucd_data_t ucd_data[SDR_CH_COUNT];
 #endif
-// #include "ad84xx.h"
-// #include "mcp23016.h"
+
 
 /* payload states
  *   0 - No power
@@ -88,16 +88,12 @@ uint8_t setDC_DC_ConvertersON(bool on)
 {
   if (on)
   {
-#ifdef DEBUG
-    printf("Enable Power\n");
-#endif
+    printf("Enable Main Power\n");
     gpio_set_pin_high(PIN_PORT(GPIO_PMBUS_CTRL), PIN_NUMBER(GPIO_PMBUS_CTRL));
   }
   else
   {
-#ifdef DEBUG
-    printf("Disable Power\n");
-#endif
+    printf("Disable Main Power\n");
     gpio_set_pin_low(PIN_PORT(GPIO_PMBUS_CTRL), PIN_NUMBER(GPIO_PMBUS_CTRL));
   }
   return 1;
@@ -107,12 +103,11 @@ static void fpga_soft_reset(void)
 {
   gpio_set_pin_low(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B));
   asm("NOP");
-  gpio_set_pin_high(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B));
-#ifdef DEBUG
   printf("Reset FPGA\n");
-#endif
-  /* Blink RED LED to indicate to the user that the Reset was performed */
-  LEDUpdate(FRU_AMC, LED1, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0);
+  gpio_set_pin_high(PIN_PORT(GPIO_FPGA_RESET_B), PIN_NUMBER(GPIO_FPGA_RESET_B));
+
+  /* Blink BLUE LED to indicate to the user that the Reset was performed */
+  LEDUpdate(FRU_AMC, LED_BLUE, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0);
 }
 
 // TCA9554
@@ -138,53 +133,67 @@ mmc_err config_jtag(void)
       standalone_mode = true;
   }
 
-  if(!standalone_mode){
-    // Enable AMC JTAG
-    // set output: AMC enabled, FMC and RTM disabled
-    i2c_written = 0;
-    while (i2c_written != 2)
-    {
-      tx_data[0] = TCA9554_OUTPUT_REG;
-      tx_data[1] = JTAG_AMC_EN | JTAG_FMC0_EN_B | JTAG_FMC1_EN_B | JTAG_RTM_EN_B;
-      if (i2c_take_by_chipid(CHIP_ID_TCA9554_JTAG_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
-      {
-        i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
-        i2c_give(i2c_interface);
-      }
-      if (i2c_written != 2)
-      {
-        err_cnt++;
-        if (err_cnt == 0xF)
-          return MMC_IO_ERR;
-        else
-          vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
-      }
-    }
+  tx_data[0] = TCA9554_OUTPUT_REG;
+  // Disable AMC, FMC0, FMC1, RTM as default
+  tx_data[1] = JTAG_FMC0_EN_B | JTAG_FMC1_EN_B | JTAG_RTM_EN_B;
 
-    // set config: 0 = output
-    i2c_written = 0;
-    while (i2c_written != 2)
+#define JTAG_FMC0_ENABLE 0
+#define JTAG_FMC1_ENABLE 0
+
+  if (JTAG_FMC0_ENABLE) tx_data[1] &= ~JTAG_FMC0_EN_B;
+  if (JTAG_FMC1_ENABLE) tx_data[1] &= ~JTAG_FMC1_EN_B;
+  if(!standalone_mode) tx_data[1] |= JTAG_AMC_EN;
+  if(!ucd_get_gpio(&ucd_data[0], UCD_GPI_RTM_PS_B_ID))  tx_data[1] &= ~JTAG_RTM_EN_B;
+  printf("JTAG Setup:\n");
+  printf("\tAMC\tRTM\tFMC0\tFMC1\n");
+  printf("\t%d\t%d\t%d\t%d\n",
+    ((tx_data[1] & JTAG_AMC_EN)?1:0),
+    ((tx_data[1] & JTAG_RTM_EN_B)?0:1),
+    ((tx_data[1] & JTAG_FMC0_EN_B)?0:1),
+    ((tx_data[1] & JTAG_FMC1_EN_B)?0:1)
+  );
+
+  // set output
+  i2c_written = 0;
+  while (i2c_written != 2)
+  {
+
+    if (i2c_take_by_chipid(CHIP_ID_TCA9554_JTAG_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
     {
-      tx_data[0] = TCA9554_CFG_REG;
-      tx_data[1] = (uint8_t)(~(JTAG_AMC_EN | JTAG_FMC0_EN_B | JTAG_FMC1_EN_B | JTAG_RTM_EN_B));
-      if (i2c_take_by_chipid(CHIP_ID_TCA9554_JTAG_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
-      {
-       i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
-        i2c_give(i2c_interface);
-      }
-      if (i2c_written != 2)
-      {
-        err_cnt++;
-        if (err_cnt == 0xF)
-          return MMC_IO_ERR;
-        else
-          vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
-      }
+      i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
+      i2c_give(i2c_interface);
     }
-    printf("AMC JTAG enabled\n");
+    if (i2c_written != 2)
+    {
+      err_cnt++;
+      if (err_cnt == 0xF)
+        return MMC_IO_ERR;
+      else
+        vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+    }
   }
-  else
-    printf("AMC JTAG disabled\n");
+
+  // set config as output: 0 = output
+  i2c_written = 0;
+  while (i2c_written != 2)
+  {
+    tx_data[0] = TCA9554_CFG_REG;
+    tx_data[1] = (uint8_t)(~(JTAG_AMC_EN | JTAG_FMC0_EN_B | JTAG_FMC1_EN_B | JTAG_RTM_EN_B));
+    if (i2c_take_by_chipid(CHIP_ID_TCA9554_JTAG_0, &i2c_addr, &i2c_interface, portMAX_DELAY) == pdTRUE)
+    {
+      i2c_written = xI2CMasterWrite(i2c_interface, i2c_addr, tx_data, 2);
+      i2c_give(i2c_interface);
+    }
+    if (i2c_written != 2)
+    {
+      err_cnt++;
+      if (err_cnt == 0xF)
+        return MMC_IO_ERR;
+      else
+        vTaskDelay(pdMS_TO_TICKS(5)); /* Avoid too much unnecessary I2C trafic*/
+    }
+  }
+
   return MMC_OK;
 }
 
@@ -258,15 +267,7 @@ void tpl0102_set_amc_voltage(uint8_t chn, float voltage, bool use_eeprom)
 
 float tpl0102_get_amc_voltage(uint8_t chn)
 {
-  uint8_t val;
-  float voltage;
-
-  val = tpl0102_get_val(chn);
-#ifdef DEBUG
-  printf("Get DAC=%d\n", val);
-#endif
-  voltage = AMC_CONV_DAC(val);
-  return voltage;
+  return AMC_CONV_DAC(tpl0102_get_val(chn));
 }
 
 #endif
@@ -474,17 +475,28 @@ void payload_init(void)
   rtm_payload_evt = xEventGroupCreate();
   mcp23016_write_pin(ext_gpios[EXT_GPIO_EN_RTM_MP].port_num, ext_gpios[EXT_GPIO_EN_RTM_MP].pin_num, true);
 #endif
-
-#ifdef MODULE_VIO_TPL0102
-  /* Configure the PVADJ DAC */
-  tpl0102_init();
-  tpl0102_set_amc_voltage(0, 1.8, false);
-  tpl0102_set_amc_voltage(1, 1.8, false);
-#endif
 }
 
 void vTaskPayload(void *pvParameters)
 {
+#ifdef MODULE_VIO_TPL0102
+
+#define WRITE_VADJ_VAL 		1.8
+
+  /* Configure the PVADJ DAC */
+#ifdef FRU_WRITE_EEPROM
+		tpl0102_set_amc_voltage(0, WRITE_VADJ_VAL, true);
+		tpl0102_set_amc_voltage(1, WRITE_VADJ_VAL, true);
+#endif
+  float voltage;
+	// print vadj setting
+	voltage = tpl0102_get_amc_voltage(0);
+  printf("FMC0 Vadj = %d mV\n", (int)(1000*voltage));
+  tpl0102_get_amc_voltage(1);
+  printf("FMC1 Vadj = %d mV\n", (int)(1000*voltage));
+
+#endif
+
   uint8_t clock_config[16];
   clock_config[0] = ADN4604_IN_PLL1_OUT;
   clock_config[1] = ADN4604_IN_PLL1_OUT | ADN4604_OUTPUT_EN;
@@ -513,8 +525,13 @@ void vTaskPayload(void *pvParameters)
   /* Payload DCDCs good flag */
   uint8_t DCDC_good = 0;
 
+  // uint8_t ucd_id_str[33];
+  // ucd_id_str[32] = '\0';
+  // ucd_read_id(&ucd_data[0], ucd_id_str);
+  // printf("%s\n", ucd_id_str);
+
 /* FPGA program done flag */
-#define FPGA_PROM_TIMEOUT 60000 // ms
+#define FPGA_PROM_TIMEOUT 100000 // ms
 #define FPGA_PROM_MAX_CNT (FPGA_PROM_TIMEOUT / PAYLOAD_BASE_DELAY)
   uint8_t FPGA_prom_timer = 0;
   uint8_t FPGA_prom_done = 0;
@@ -604,7 +621,7 @@ void vTaskPayload(void *pvParameters)
 
 #ifdef MODULE_UCD90XXX
     PP_good = payload_check_pgood();
-    // DCDC_good = ucd_get_gpio(CHIP_ID_PMBUS_0, UCD_GPIO_PG);
+    // DCDC_good = ucd_get_gpio(&ucd_data[0], UCD_GPI_PG_ID);
     DCDC_good = dcdc_check_pgood();
 #else
     PP_good = 1;
@@ -630,10 +647,33 @@ void vTaskPayload(void *pvParameters)
       if (QUIESCED_req || (PP_good == 0)) new_state = PAYLOAD_SWITCHING_OFF;
       if (DCDC_good == 1)
       {
-        // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_HIGH);
-        // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_HIGH);
+        printf("Enable FMC0 Power\n");
+        ucd_set_gpio(&ucd_data[0], UCD_GPO_FMC0_3V3AUX_EN_ID, 1);
+        ucd_set_power(&ucd_data[0], UCD_FMC0_VADJ_ID, 1);
+        // ucd_set_gpio(&ucd_data[0], UCD_GPO_FMC0_PG_C2M_ID, 1);
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+
+        printf("Enable FMC1 Power\n");
+        ucd_set_gpio(&ucd_data[0], UCD_GPO_FMC1_3V3AUX_EN_ID, 1);
+        ucd_set_power(&ucd_data[0], UCD_FMC1_VADJ_ID, 1);
+        // ucd_set_gpio(&ucd_data[0], UCD_GPO_FMC1_PG_C2M_ID, 1);
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+
+        // Check RTM
+        // ucd_set_gpio(&ucd_data[0], UCD_GPO_RTM_MP_EN_ID, 1);
+        if (ucd_get_gpio(&ucd_data[0], UCD_GPI_RTM_PS_B_ID))
+        {
+          printf("No RTM\n");
+        }
+        else
+        {
+          ucd_set_power(&ucd_data[0], UCD_RTM_12V_CURR_ID, 1);
+          printf("Enable RTM Power\n");
+        }
+
         // Turn on the green light
         LEDUpdate( FRU_AMC, LED2, LEDMODE_OVERRIDE, LEDINIT_ON, 0, 0 );
+        // config JTAG
         if (config_jtag() != MMC_OK)
           printf("JTAG config ERROR\n");
         new_state = PAYLOAD_STATE_CLK_SETUP;
@@ -656,6 +696,7 @@ void vTaskPayload(void *pvParameters)
             {
               printf("PLL1 config OK\n");
               // Only change the state if the clock configuration succeeds
+              FPGA_prom_timer = 0;
               new_state = PAYLOAD_STATE_FPGA_SETUP;
             }
             else
@@ -681,8 +722,6 @@ void vTaskPayload(void *pvParameters)
       {
         // reset FPGA
         fpga_soft_reset();
-        // if (config_jtag() != MMC_OK)
-        //   printf("JTAG config ERROR\n");
         new_state = PAYLOAD_FPGA_ON;
       }
       else
@@ -691,7 +730,8 @@ void vTaskPayload(void *pvParameters)
         if (FPGA_prom_timer == FPGA_PROM_MAX_CNT)
         {
           printf("FPGA program timeout\n");
-          FPGA_prom_timer = 0;
+          /* Blink RED LED to indicate to the user that the Reset was performed */
+          LEDUpdate(FRU_AMC, LED1, LEDMODE_LAMPTEST, LEDINIT_ON, 5, 0);
           new_state = PAYLOAD_FPGA_ON;
         }
       }
@@ -705,8 +745,17 @@ void vTaskPayload(void *pvParameters)
       break;
 
     case PAYLOAD_SWITCHING_OFF:
-      // gpio_set_pin_state(PIN_PORT(GPIO_FMC1_PG_C2M), PIN_NUMBER(GPIO_FMC1_PG_C2M), GPIO_LEVEL_LOW);
-      // gpio_set_pin_state(PIN_PORT(GPIO_FMC2_PG_C2M), PIN_NUMBER(GPIO_FMC2_PG_C2M), GPIO_LEVEL_LOW);
+      ucd_set_power(&ucd_data[0], UCD_RTM_12V_CURR_ID, 0);
+      // ucd_set_gpio(&ucd_data[0], UCD_GPO_RTM_MP_EN_ID, 0);
+
+      // ucd_set_gpio(&ucd_data[0], UCD_GPO_FMC0_PG_C2M_ID, 0);
+      ucd_set_power(&ucd_data[0], UCD_FMC0_VADJ_ID, 0);
+      ucd_set_gpio(&ucd_data[0], UCD_GPO_FMC0_3V3AUX_EN_ID, 0);
+
+      // ucd_set_gpio(&ucd_data[0], UCD_GPO_FMC1_PG_C2M_ID, 0);
+      ucd_set_power(&ucd_data[0], UCD_FMC1_VADJ_ID, 0);
+      ucd_set_gpio(&ucd_data[0], UCD_GPO_FMC1_3V3AUX_EN_ID, 0);
+
       setDC_DC_ConvertersON(false);
       // Toggle the green light
       LEDUpdate( FRU_AMC, LED2, LEDMODE_OVERRIDE, LEDINIT_ON, 5, 5 );

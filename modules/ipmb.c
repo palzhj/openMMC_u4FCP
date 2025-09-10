@@ -104,13 +104,13 @@ void IPMB_TXTask ( void * pvParameters )
     for ( ;; ) {
         xQueueReceive( ipmb_txqueue, &current_msg_tx, portMAX_DELAY);
 
-#if DEBUG
-        printf(" IPMI Message to be sent: \n ");
-        printf(" \tNETFn: 0x%X\tCMD: 0x%X\t Data: ", (*current_msg_tx).buffer.netfn, (*current_msg_tx).buffer.cmd);
-        for (int i=0; i < (*current_msg_tx).buffer.data_len; i++) {
-            printf("0x%X ", (*current_msg_tx).buffer.data[i]);
-        }
-        printf("\n");
+#ifdef DEBUG
+    printf(" IPMI Message to be sent: \n ");
+    printf(" \tNETFn: 0x%X\tCMD: 0x%X\t Data: ", (*current_msg_tx).buffer.netfn, (*current_msg_tx).buffer.cmd);
+    for (int i=0; i < (*current_msg_tx).buffer.data_len; i++) {
+        printf("0x%X ", (*current_msg_tx).buffer.data[i]);
+    }
+    printf("\n");
 #endif
 
         if ( IS_RESPONSE(current_msg_tx->buffer) ) {

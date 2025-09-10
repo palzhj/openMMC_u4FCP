@@ -24,12 +24,6 @@
 #define TPL0102_H_
 
 /**
- * @brief Initializes TPL0102 potentiometer interface
- *
- */
-void tpl0102_init( void );
-
-/**
  * @brief Write a value to the TPL0102 potentiometer output register
  *
  * @param chn Selects which channel of the potentiometer will be set

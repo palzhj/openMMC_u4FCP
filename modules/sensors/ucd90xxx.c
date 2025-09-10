@@ -48,6 +48,7 @@
 #define UCD_REG_PAGE 0x00
 #define UCD_REG_OPERATION 0x01
 #define UCD_REG_VOUT_MODE 0x20
+#define UCD_REG_STATUS_BYTE 0x78
 #define UCD_REG_STATUS_VOUT 0x7A
 #define UCD_REG_STATUS_IOUT 0x7B
 #define UCD_REG_STATUS_TEMPERATURE 0x7D
@@ -57,12 +58,22 @@
 #define UCD_REG_READ_TEMPERATURE_2 0x8E
 #define UCD_REG_GPIO_SELECT 0xFA
 #define UCD_REG_GPIO_CONFIG 0xFB
+#define UCD_REG_DEVICE_ID 0xFD
 
 /**
  * @}
  */
 
 /* Status */
+#define UCD_STATUS_BUSY           0x80 // A fault was declared because the device was busy and unable to respond.
+#define UCD_STATUS_OFF            0x40 // This bit is asserted if the unit is not providing power to the output.
+#define UCD_STATUS_VOUT_OV_FAULT  0x20 // An output overvoltage fault has occurred.
+#define UCD_STATUS_IOUT_OC_FAULT  0x10 // An output overcurrent fault has occurred.
+#define UCD_STATUS_VIN_UV_FAULT   0x08 // An input undervoltage fault has occurred.
+#define UCD_STATUS_TEMPERATURE    0x04 // A temperature fault or warning has occurred.
+#define UCD_STATUS_CML            0x02 // A communications, memory or logic fault has occurred.
+#define UCD_STATUS_OTHERS         0x01 // A fault or warning not listed in bits [7:1] has occurred.
+
 #define UCD_VOUT_OF 0x80 // Over voltage Fault
 #define UCD_VOUT_OW 0x40 // Over voltage Warning
 #define UCD_VOUT_UW 0x20 // Under voltage Warning
@@ -83,163 +94,11 @@
 
 #define UCD_UPDATE_RATE 5000
 
-static ucd_data_t ucd_data[SDR_CH_COUNT];
+#define UCD_REG_DEVICE_ID_LENGTH 32
+
+ucd_data_t ucd_data[SDR_CH_COUNT];
 TaskHandle_t vTaskUCD_Handle;
-
-/**
- * @brief Task function for handling UCD90xxx sensor updates.
- *
- * This task periodically reads data from UCD90xxx sensors and checks for threshold events.
- * It iterates through the available UCD90xxx channels, reads the sensor data based on the
- * sensor type (voltage or current), and performs necessary checks for sensor events.
- *
- * The task runs at a fixed interval defined by `UCD_UPDATE_RATE` and uses FreeRTOS timing
- * functions to maintain the periodicity.
- *
- * @param Parameters Pointer to task parameters (unused in this implementation).
- */
-void vTaskUCD(void *Parameters)
-{
-  uint8_t ch_num;
-  TickType_t xLastWakeTime;
-  const TickType_t xFrequency = pdMS_TO_TICKS(UCD_UPDATE_RATE);
-
-  sensor_t *ucd_sensor;
-  ucd_data_t *data_ptr;
-
-  /* Initialise the xLastWakeTime variable with the current time. */
-  xLastWakeTime = xTaskGetTickCount();
-
-  for (;;)
-  {
-    /* Read registers from the UCD90xxx */
-    for (ch_num = 0; ch_num < SDR_CH_COUNT; ch_num++)
-    {
-      /* Skip if the chip ID is not set */
-      if (!ucd_data[ch_num].chipid)
-      {
-        continue;
-      }
-
-      ucd_sensor = ucd_data[ch_num].sensor;
-      if (ucd_sensor == NULL)
-      {
-        continue;
-      }
-
-      data_ptr = &ucd_data[ch_num];
-
-      /* Handle different sensor types */
-      switch (GET_SENSOR_TYPE(ucd_sensor))
-      {
-      case SENSOR_TYPE_VOLTAGE:
-        ucd_read_voltages(data_ptr);
-        break;
-
-      case SENSOR_TYPE_CURRENT:
-        ucd_read_current(data_ptr);
-        break;
-
-      case SENSOR_TYPE_TEMPERATURE:
-        ucd_read_temperature(data_ptr);
-        break;
-
-      default:
-        break;
-      }
-
-      /* Check for threshold events */
-      sensor_state_check(ucd_sensor);
-      check_sensor_event(ucd_sensor);
-    }
-
-    /* Wait until the next cycle */
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
-  }
-}
-
-/**
- * @brief Reads the status of a GPIO pin on a UCD90xxx device.
- *
- * This function selects the specified GPIO pin on the UCD90xxx device and then reads its
- * configuration register to determine the status of the pin. The function retries the I2C
- * operations until they succeed, with a delay between retries to avoid excessive I2C traffic.
- *
- * @param chipid The chip ID of the UCD90xxx device.
- * @param pin_number The GPIO pin number to read.
- *
- * @return 1 if the GPIO status is high, 0 if low.
- */
-uint8_t ucd_get_gpio(uint8_t chipid, uint8_t pin_number)
-{
-  uint8_t i2c_interf, i2c_addr;
-  uint8_t val[2] = {0};
-  uint8_t len = 0;
-
-  val[0] = UCD_REG_GPIO_SELECT;
-  while (len != 1)
-  {
-    if (i2c_take_by_chipid(chipid, &i2c_addr, &i2c_interf, portMAX_DELAY) == pdTRUE)
-    {
-      len = xI2CMasterWriteRead(i2c_interf, i2c_addr, &val[0], 1, &val[1], 1);
-      i2c_give(i2c_interf); /* Release the I2C interface */
-    }
-
-    if (len != 1)
-    {
-#ifdef DEBUG
-      printf("UCD read error @ 0x%x\n", UCD_REG_GPIO_SELECT);
-#endif
-      vTaskDelay(pdMS_TO_TICKS(UCD_TIMEOUT)); /* Avoid excessive I2C traffic */
-    }
-  }
-  if (val[1] != pin_number)
-  {
-    /* Select the GPIO pin */
-    val[1] = pin_number;
-    len = 0;
-    while (len != 2)
-    {
-      if (i2c_take_by_chipid(chipid, &i2c_addr, &i2c_interf, portMAX_DELAY) == pdTRUE)
-      {
-        len = xI2CMasterWrite(i2c_interf, i2c_addr, val, 2);
-        i2c_give(i2c_interf); /* Release the I2C interface */
-      }
-
-      if (len != 2)
-      {
-#ifdef DEBUG
-        printf("UCD write error @ 0x%x\n", UCD_REG_GPIO_SELECT);
-#endif
-        vTaskDelay(pdMS_TO_TICKS(UCD_TIMEOUT)); /* Avoid excessive I2C traffic */
-      }
-    }
-    vTaskDelay(pdMS_TO_TICKS(UCD_TIMEOUT));
-  }
-
-  /* Read the GPIO configuration register */
-  val[0] = UCD_REG_GPIO_CONFIG;
-  len = 0;
-  while (len != 1)
-  {
-    if (i2c_take_by_chipid(chipid, &i2c_addr, &i2c_interf, portMAX_DELAY) == pdTRUE)
-    {
-      len = xI2CMasterWriteRead(i2c_interf, i2c_addr, &val[0], 1, &val[1], 1);
-      i2c_give(i2c_interf); /* Release the I2C interface */
-    }
-
-    if (len != 1)
-    {
-#ifdef DEBUG
-      printf("UCD read error @ 0x%x\n", UCD_REG_GPIO_CONFIG);
-#endif
-      vTaskDelay(pdMS_TO_TICKS(UCD_TIMEOUT)); /* Avoid excessive I2C traffic */
-    }
-  }
-
-  /* Check the GPIO status bit */
-  return (val[1] & UCD_GPIO_CONFIG_STATUS) ? 1 : 0;
-}
+SemaphoreHandle_t xUCD_busy;
 
 /**
  * @brief Reads a single byte from a UCD90xxx device register.
@@ -485,6 +344,8 @@ uint8_t ucd_write_word(ucd_data_t *data, uint8_t reg_addr, uint16_t *written)
  */
 uint16_t pmbus2sdr_convert(ucd_data_t *data, float value)
 {
+  if(value < 0) value = 0;
+
   /* Extract the SDR coefficients and exponents */
   SDR_type_01h_t *sdr = (SDR_type_01h_t *)data->sensor->sdr;
   uint8_t M = sdr->M;
@@ -492,14 +353,13 @@ uint16_t pmbus2sdr_convert(ucd_data_t *data, float value)
   uint8_t Rexp_Bexp = sdr->Rexp_Bexp;
 
   /* Extract and convert the exponents */
-  uint8_t uRexp = Rexp_Bexp >> 4;
-  uint8_t uBexp = Rexp_Bexp & 0xF;
+  int8_t uRexp = Rexp_Bexp >> 4;
+  int8_t uBexp = Rexp_Bexp & 0xF;
   int8_t Rexp = (uRexp > 0x7) ? uRexp - 0x10 : uRexp;
   int8_t Bexp = (uBexp > 0x7) ? uBexp - 0x10 : uBexp;
 
   /* Calculate the converted value using the linearization formula */
   float converted_value = (value / pow(10, Rexp) - B * pow(10, Bexp)) / M;
-
   /* Return the result as a 16-bit unsigned integer */
   return (uint16_t)converted_value;
 }
@@ -518,9 +378,10 @@ void ucd_read_voltages(ucd_data_t *data)
 {
   SDR_type_01h_t *sdr = (SDR_type_01h_t *)data->sensor->sdr;
   uint8_t page = sdr->OEM;
+  uint16_t raw;
   uint8_t mode;
   int8_t M_exp;
-  uint16_t adc;
+  int16_t adc;
 
   /* Set the page to the appropriate value */
   ucd_write_byte(data, UCD_REG_PAGE, &page);
@@ -531,7 +392,8 @@ void ucd_read_voltages(ucd_data_t *data)
   M_exp = (mode > 0xF) ? (mode - 0x20) : mode;
 
   /* Read the voltage value */
-  ucd_read_word(data, UCD_REG_READ_VOUT, &adc);
+  ucd_read_word(data, UCD_REG_READ_VOUT, &raw);
+  adc = raw;
 
   /* Calculate the actual voltage value based on the mode */
   /* Nominal reading Voltage = adc * 2^(M_exp) = [(M * x + B * 10^(B_exp)) * 10^(R_exp)] */
@@ -540,7 +402,7 @@ void ucd_read_voltages(ucd_data_t *data)
   /* Optionally, print debug information */
   // #ifdef DEBUG
   //   printf("ucd read mode: 0x%x\n", mode);
-  //   printf("ucd read vout: 0x%x\n", adc);
+  //   printf("ucd read vout: 0x%x\n", raw);
   //   printf("ucd calculated voltage: %d\n", data->sensor->readout_value);
   // #endif
 }
@@ -549,33 +411,39 @@ void ucd_read_current(ucd_data_t *data)
 {
   SDR_type_01h_t *sdr = (SDR_type_01h_t *)data->sensor->sdr;
   uint8_t page = sdr->OEM;
-  uint8_t mode;
+  uint16_t raw;
+  int8_t mode;
   int8_t M_exp;
-  uint16_t adc;
+  int16_t adc;
   int16_t iadc;
 
-  /* Set the page to the appropriate value */
-  ucd_write_byte(data, UCD_REG_PAGE, &page);
+  /* Read the status */
+  ucd_read_word(data, UCD_REG_STATUS_BYTE, &raw);
+  if (raw & UCD_STATUS_OFF) data->sensor->readout_value = pmbus2sdr_convert(data, 0);
+  else
+  {
+    /* Set the page to the appropriate value */
+    ucd_write_byte(data, UCD_REG_PAGE, &page);
 
-  /* Read the current value */
-  ucd_read_word(data, UCD_REG_READ_IOUT, &adc);
+    /* Read the current value */
+    ucd_read_word(data, UCD_REG_READ_IOUT, &raw);
 
-  mode = (adc >> 11) & 0x1F;
-  M_exp = (mode > 0xF) ? (mode - 0x20) : mode;
+    mode = (raw >> 11) & 0x1F;
+    M_exp = (mode > 0xF) ? (mode - 0x20) : mode;
 
-  adc &= 0x7FF;
-  iadc = (adc > 0x3FF) ? (adc - 0x800) : adc;
+    adc = raw & 0x7FF;
+    iadc = (adc > 0x3FF) ? (adc - 0x800) : adc;
 
-  /* Calculate the actual current value based on the mode */
-  /* Nominal reading current = iadc * 2^(M_exp) = [(M * x + B * 10^(B_exp)) * 10^(R_exp)] */
-  data->sensor->readout_value = pmbus2sdr_convert(data, iadc * pow(2, M_exp));
-  ;
+    /* Calculate the actual current value based on the mode */
+    /* Nominal reading current = iadc * 2^(M_exp) = [(M * x + B * 10^(B_exp)) * 10^(R_exp)] */
+    data->sensor->readout_value = pmbus2sdr_convert(data, iadc * pow(2, M_exp));
 
-  /* Optionally, print debug information */
-  // #ifdef DEBUG
-  //   printf("ucd read Iout: 0x%x\n", adc);
-  //   printf("ucd calculated current: %d\n", data->sensor->readout_value);
-  // #endif
+    /* Optionally, print debug information */
+    // #ifdef DEBUG
+    //   printf("ucd read Iout: 0x%x\n", raw);
+    //   printf("ucd calculated current: %d\n", data->sensor->readout_value);
+    // #endif
+  }
 }
 
 /**
@@ -591,23 +459,24 @@ void ucd_read_temperature(ucd_data_t *data)
 {
   SDR_type_01h_t *sdr = (SDR_type_01h_t *)data->sensor->sdr;
   uint8_t page = sdr->OEM;
-  uint8_t mode;
+  uint16_t raw;
+  int8_t mode;
   int8_t M_exp;
-  uint16_t adc;
+  int16_t adc;
   int16_t iadc;
 
   /* Set the page to the appropriate value */
   ucd_write_byte(data, UCD_REG_PAGE, &page);
 
   /* Read the temperature value */
-  ucd_read_word(data, UCD_REG_READ_TEMPERATURE_1, &adc);
+  ucd_read_word(data, UCD_REG_READ_TEMPERATURE_1, &raw);
 
   /* Extract the mode and exponent from the read value */
-  mode = (adc >> 11) & 0x1F;
+  mode = (raw >> 11) & 0x1F;
   M_exp = (mode > 0xF) ? (mode - 0x20) : mode;
 
   /* Convert the ADC value to a signed integer */
-  adc &= 0x7FF;
+  adc = raw & 0x7FF;
   iadc = (adc > 0x3FF) ? (adc - 0x800) : adc;
 
   /* Calculate the actual temperature value based on the mode */
@@ -616,9 +485,89 @@ void ucd_read_temperature(ucd_data_t *data)
 
   /* Optionally, print debug information */
   // #ifdef DEBUG
-  //   printf("ucd read temperature: 0x%x\n", adc);
+  //   printf("ucd read temperature: 0x%x\n", raw);
   //   printf("ucd calculated temperature: %d\n", data->sensor->readout_value);
   // #endif
+}
+
+/**
+ * @brief Task function for handling UCD90xxx sensor updates.
+ *
+ * This task periodically reads data from UCD90xxx sensors and checks for threshold events.
+ * It iterates through the available UCD90xxx channels, reads the sensor data based on the
+ * sensor type (voltage or current), and performs necessary checks for sensor events.
+ *
+ * The task runs at a fixed interval defined by `UCD_UPDATE_RATE` and uses FreeRTOS timing
+ * functions to maintain the periodicity.
+ *
+ * @param Parameters Pointer to task parameters (unused in this implementation).
+ */
+void vTaskUCD(void *Parameters)
+{
+  uint8_t ch_num;
+  TickType_t xLastWakeTime;
+  const TickType_t xFrequency = pdMS_TO_TICKS(UCD_UPDATE_RATE);
+
+  sensor_t *ucd_sensor;
+  ucd_data_t *data_ptr;
+
+  xSemaphoreGive(xUCD_busy);
+
+  /* Initialise the xLastWakeTime variable with the current time. */
+  xLastWakeTime = xTaskGetTickCount();
+
+  for (;;)
+  {
+    if(pdTRUE == xSemaphoreTake(xUCD_busy, xFrequency))
+    {
+
+      /* Read registers from the UCD90xxx */
+      for (ch_num = 0; ch_num < SDR_CH_COUNT; ch_num++)
+      {
+        /* Skip if the chip ID is not set */
+        if (!ucd_data[ch_num].chipid)
+        {
+          continue;
+        }
+
+        ucd_sensor = ucd_data[ch_num].sensor;
+        if (ucd_sensor == NULL)
+        {
+          continue;
+        }
+
+        data_ptr = &ucd_data[ch_num];
+
+        /* Handle different sensor types */
+        switch (GET_SENSOR_TYPE(ucd_sensor))
+        {
+        case SENSOR_TYPE_VOLTAGE:
+          ucd_read_voltages(data_ptr);
+          break;
+
+        case SENSOR_TYPE_CURRENT:
+          ucd_read_current(data_ptr);
+          break;
+
+        case SENSOR_TYPE_TEMPERATURE:
+          ucd_read_temperature(data_ptr);
+          break;
+
+        default:
+          break;
+        }
+
+        /* Check for threshold events */
+        sensor_state_check(ucd_sensor);
+        check_sensor_event(ucd_sensor);
+      }
+
+      xSemaphoreGive(xUCD_busy);
+    }
+
+    /* Wait until the next cycle */
+    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+  }
 }
 
 /**
@@ -632,6 +581,8 @@ void ucd_init(void)
 {
   sensor_t *tmp_sensor;
   uint8_t ch_num;
+
+  xUCD_busy = xSemaphoreCreateBinary();
 
   /* Create the task for handling UCD90xxx sensor updates */
   xTaskCreate(vTaskUCD, "UCD90XXX", 256, (void *)NULL, tskUCDSENSOR_PRIORITY, &vTaskUCD_Handle);
@@ -662,4 +613,96 @@ void ucd_init(void)
       }
     }
   }
+}
+
+/**
+ * @brief Reads the device ID string from a UCD90xxx device.
+ *
+ * This function reads the device identification string from the UCD90xxx device's
+ * DEVICE_ID register. The device ID is a 32-byte string that contains information
+ * about the device model, revision, and other identification details.
+ *
+ * @param data Pointer to the UCD90xxx data structure containing the chip ID information.
+ * @param str Pointer to a buffer where the device ID string will be stored. The buffer
+ *            must be at least UCD_REG_DEVICE_ID_LENGTH (32 bytes) in size.
+ */
+void ucd_read_id(ucd_data_t * data, uint8_t *str)
+{
+  while(pdTRUE != xSemaphoreTake(xUCD_busy, pdMS_TO_TICKS(UCD_UPDATE_RATE))) vTaskDelay(pdMS_TO_TICKS(UCD_UPDATE_RATE));
+  ucd_read_block(data, UCD_REG_DEVICE_ID, str, UCD_REG_DEVICE_ID_LENGTH);
+  xSemaphoreGive(xUCD_busy);
+}
+
+/**
+ * @brief Reads the status of a GPIO pin on a UCD90xxx device.
+ *
+ * This function selects the specified GPIO pin on the UCD90xxx device and then reads its
+ * configuration register to determine the status of the pin. The function retries the I2C
+ * operations until they succeed, with a delay between retries to avoid excessive I2C traffic.
+ *
+ * @param data Pointer to the UCD90xxx data structure containing the chip ID information.
+ * @param pin_number The GPIO pin number to read.
+ *
+ * @return 1 if the GPIO status is high, 0 if low.
+ */
+uint8_t ucd_get_gpio(ucd_data_t * data, uint8_t pin_number)
+{
+  uint8_t read;
+  while(pdTRUE != xSemaphoreTake(xUCD_busy, pdMS_TO_TICKS(UCD_UPDATE_RATE))) vTaskDelay(pdMS_TO_TICKS(UCD_UPDATE_RATE));
+  ucd_write_byte(data, UCD_REG_GPIO_SELECT, &pin_number);
+  ucd_read_byte(data, UCD_REG_GPIO_CONFIG, &read);
+  xSemaphoreGive(xUCD_busy);
+  /* Check the GPIO status bit */
+  return ((read & UCD_GPIO_CONFIG_STATUS) ? 1 : 0);
+}
+
+/**
+ * @brief Sets the state of a GPIO pin on a UCD90xxx device.
+ *
+ * This function configures a specific GPIO pin on the UCD90xxx device to either
+ * a high or low state. It first selects the GPIO pin using the GPIO_SELECT register,
+ * then configures the pin by writing to the GPIO_CONFIG register with the appropriate
+ * control bits set for output mode and the desired state.
+ *
+ * The configuration includes:
+ *   - Enabling the GPIO (UCD_GPIO_CONFIG_EN)
+ *   - Setting the pin as output (UCD_GPIO_CONFIG_OEN)
+ *   - Setting the output state high or low (UCD_GPIO_CONFIG_HIGH for high state)
+ *
+ * @param data Pointer to the UCD90xxx data structure containing the chip ID information.
+ * @param pin_number The GPIO pin number to configure.
+ * @param state The desired state of the GPIO pin (1 for high, 0 for low).
+ */
+void ucd_set_gpio(ucd_data_t * data, uint8_t pin_number, uint8_t state)
+{
+  uint8_t temp;
+  while(pdTRUE != xSemaphoreTake(xUCD_busy, pdMS_TO_TICKS(UCD_UPDATE_RATE))) vTaskDelay(pdMS_TO_TICKS(UCD_UPDATE_RATE));
+  ucd_write_byte(data, UCD_REG_GPIO_SELECT, &pin_number);
+  if(state) temp = UCD_GPIO_CONFIG_EN | UCD_GPIO_CONFIG_OEN | UCD_GPIO_CONFIG_HIGH;
+  else temp = UCD_GPIO_CONFIG_EN | UCD_GPIO_CONFIG_OEN;
+  ucd_write_byte(data, UCD_REG_GPIO_CONFIG, &temp);
+  xSemaphoreGive(xUCD_busy);
+}
+
+/**
+ * @brief Sets the power state of a specific page on a UCD90xxx device.
+ *
+ * This function controls the operation of a power supply page by writing to the
+ * OPERATION register. It first selects the target page using the PAGE register,
+ * then sets the operation state to either on (0x80) or off (0x00) based on the
+ * specified state parameter.
+ *
+ * @param data Pointer to the UCD90xxx data structure containing the chip ID information.
+ * @param page The page number to control (typically corresponds to a specific power rail).
+ * @param state The desired power state (1 to enable, 0 to disable).
+ */
+void ucd_set_power(ucd_data_t * data, uint8_t page, uint8_t state)
+{
+  uint8_t temp;
+  while(pdTRUE != xSemaphoreTake(xUCD_busy, pdMS_TO_TICKS(UCD_UPDATE_RATE))) vTaskDelay(pdMS_TO_TICKS(UCD_UPDATE_RATE));
+  ucd_write_byte(data, UCD_REG_PAGE, &page);
+  if(state) temp = 0x80;
+  else temp = 0;
+  ucd_write_byte(data, UCD_REG_OPERATION, &temp);
+  xSemaphoreGive(xUCD_busy);
 }

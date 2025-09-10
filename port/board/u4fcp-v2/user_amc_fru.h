@@ -27,25 +27,25 @@
  * Common defines
  *********************************************/
 #define AMC_LANG_CODE               0
-#define AMC_FRU_FILE_ID             "none"       //Allows knowing the source of the FRU present in the memory
+#define AMC_FRU_FILE_ID             "AMCFRU"       //Allows knowing the source of the FRU present in the memory
 
 /*********************************************
  * Board information area
  *********************************************/
 #define AMC_BOARD_MANUFACTURING_TIME 15254640               /* Amount of minutes since 0:00 1/1/96 */
 #define AMC_BOARD_MANUFACTURER      "IHEP"
-#define AMC_BOARD_NAME              "AMC FMC Carrier"
-#define AMC_BOARD_SN                "0"
-#define AMC_BOARD_PN                "0"
+#define AMC_BOARD_NAME              "FMC Carrier for AMC"
+#define AMC_BOARD_SN                "TA02"
+#define AMC_BOARD_PN                "TAO"
 
 /*********************************************
  * Product information area
  *********************************************/
-#define AMC_PRODUCT_MANUFACTURER    "IHEP"
+#define AMC_PRODUCT_MANUFACTURER    "Jie Zhang"
 #define AMC_PRODUCT_NAME            "u4FCP"
 #define AMC_PRODUCT_PN              "AMC"
-#define AMC_PRODUCT_VERSION         "2.0"
-#define AMC_PRODUCT_SN              "UB001"
+#define AMC_PRODUCT_VERSION         "2.1"
+#define AMC_PRODUCT_SN              ""
 #define AMC_PRODUCT_ASSET_TAG       "Generic FRU"
 
 /*********************************************
@@ -65,7 +65,7 @@
 /**********************************************
  * PICMG: Module current record
  **********************************************/
-#define AMC_MODULE_CURRENT_RECORD            current_in_ma(6200)
+#define AMC_MODULE_CURRENT_RECORD            current_in_ma(5400)
 
 /*********************************************
  * RTM Compatibility Record

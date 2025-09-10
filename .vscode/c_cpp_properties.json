@@ -17,7 +17,7 @@
                 "STM32F10X_MD",
                 "USE_STDPERIPH_DRIVER",
                 "TARGET_CONTROLLER=STM32F103C8T6",
-                "TARGET_BOARD_NAME=\"uFCP v2.0\"",
+                "TARGET_BOARD_NAME=\"u4FCP-v2\"",
                 "DEBUG",
                 "MODULE_UART_DEBUG",
                 "MODULE_FRU",
